@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      certifications: {
+        Row: {
+          cert_name: string
+          cert_type: string
+          company_id: string
+          created_at: string
+          expiration_date: string
+          id: string
+          location_id: string | null
+          machine_id: string | null
+        }
+        Insert: {
+          cert_name: string
+          cert_type: string
+          company_id: string
+          created_at?: string
+          expiration_date: string
+          id?: string
+          location_id?: string | null
+          machine_id?: string | null
+        }
+        Update: {
+          cert_name?: string
+          cert_type?: string
+          company_id?: string
+          created_at?: string
+          expiration_date?: string
+          id?: string
+          location_id?: string | null
+          machine_id?: string | null
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           created_at: string
@@ -32,6 +65,36 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      customer_feedback: {
+        Row: {
+          company_id: string
+          created_at: string
+          feedback_date: string
+          feedback_text: string | null
+          id: string
+          location_id: string
+          rating: number | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          feedback_date: string
+          feedback_text?: string | null
+          id?: string
+          location_id: string
+          rating?: number | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          feedback_date?: string
+          feedback_text?: string | null
+          id?: string
+          location_id?: string
+          rating?: number | null
         }
         Relationships: []
       }
@@ -91,6 +154,69 @@ export type Database = {
           },
         ]
       }
+      machines: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          purchase_cost: number | null
+          purchase_date: string | null
+          serial_number: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          purchase_cost?: number | null
+          purchase_date?: string | null
+          serial_number: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          purchase_cost?: number | null
+          purchase_date?: string | null
+          serial_number?: string
+        }
+        Relationships: []
+      }
+      marketing_promotions: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          discount_amount: number | null
+          end_date: string
+          id: string
+          name: string
+          sales_lift: number | null
+          start_date: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          discount_amount?: number | null
+          end_date: string
+          id?: string
+          name: string
+          sales_lift?: number | null
+          start_date: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          discount_amount?: number | null
+          end_date?: string
+          id?: string
+          name?: string
+          sales_lift?: number | null
+          start_date?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           company_id: string | null
@@ -128,6 +254,207 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      purchase_items: {
+        Row: {
+          company_id: string
+          id: string
+          item_name: string
+          purchase_id: string
+          quantity: number
+          unit_cost: number
+        }
+        Insert: {
+          company_id: string
+          id?: string
+          item_name: string
+          purchase_id: string
+          quantity: number
+          unit_cost: number
+        }
+        Update: {
+          company_id?: string
+          id?: string
+          item_name?: string
+          purchase_id?: string
+          quantity?: number
+          unit_cost?: number
+        }
+        Relationships: []
+      }
+      purchases: {
+        Row: {
+          company_id: string
+          created_at: string
+          destination: string
+          duties_taxes: number | null
+          id: string
+          purchase_date: string
+          purchase_type: string
+          shipping_cost: number | null
+          supplier_id: string
+          total_cost: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          destination: string
+          duties_taxes?: number | null
+          id?: string
+          purchase_date: string
+          purchase_type: string
+          shipping_cost?: number | null
+          supplier_id: string
+          total_cost: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          destination?: string
+          duties_taxes?: number | null
+          id?: string
+          purchase_date?: string
+          purchase_type?: string
+          shipping_cost?: number | null
+          supplier_id?: string
+          total_cost?: number
+        }
+        Relationships: []
+      }
+      route_assignments: {
+        Row: {
+          company_id: string
+          completed: boolean | null
+          created_at: string
+          employee_id: string | null
+          id: string
+          location_id: string
+          route_id: string
+          scheduled_date: string
+        }
+        Insert: {
+          company_id: string
+          completed?: boolean | null
+          created_at?: string
+          employee_id?: string | null
+          id?: string
+          location_id: string
+          route_id: string
+          scheduled_date: string
+        }
+        Update: {
+          company_id?: string
+          completed?: boolean | null
+          created_at?: string
+          employee_id?: string | null
+          id?: string
+          location_id?: string
+          route_id?: string
+          scheduled_date?: string
+        }
+        Relationships: []
+      }
+      routes: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      setup_machines: {
+        Row: {
+          company_id: string
+          id: string
+          machine_id: string
+          setup_id: string
+        }
+        Insert: {
+          company_id: string
+          id?: string
+          machine_id: string
+          setup_id: string
+        }
+        Update: {
+          company_id?: string
+          id?: string
+          machine_id?: string
+          setup_id?: string
+        }
+        Relationships: []
+      }
+      setups: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          location_id: string | null
+          name: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          name: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          company_id: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          company_id: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          company_id?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       toys: {
         Row: {
@@ -280,6 +607,108 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      warehouse_components: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          landed_unit_cost: number
+          name: string
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          landed_unit_cost: number
+          name: string
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          landed_unit_cost?: number
+          name?: string
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      warehouse_finished_products: {
+        Row: {
+          company_id: string
+          created_at: string
+          final_cogs: number
+          id: string
+          name: string
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          final_cogs: number
+          id?: string
+          name: string
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          final_cogs?: number
+          id?: string
+          name?: string
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      work_orders: {
+        Row: {
+          assigned_to: string | null
+          company_id: string
+          cost: number | null
+          created_at: string
+          description: string | null
+          id: string
+          issue_type: string
+          location_id: string
+          resolved_at: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          company_id: string
+          cost?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          issue_type: string
+          location_id: string
+          resolved_at?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          company_id?: string
+          cost?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          issue_type?: string
+          location_id?: string
+          resolved_at?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
