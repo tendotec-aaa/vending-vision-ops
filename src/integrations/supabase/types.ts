@@ -49,21 +49,33 @@ export type Database = {
       }
       companies: {
         Row: {
+          address: string | null
+          company_email: string | null
           created_at: string
           id: string
           name: string
+          phone_number: string | null
+          tax_id: string | null
           updated_at: string
         }
         Insert: {
+          address?: string | null
+          company_email?: string | null
           created_at?: string
           id?: string
           name: string
+          phone_number?: string | null
+          tax_id?: string | null
           updated_at?: string
         }
         Update: {
+          address?: string | null
+          company_email?: string | null
           created_at?: string
           id?: string
           name?: string
+          phone_number?: string | null
+          tax_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -225,6 +237,7 @@ export type Database = {
           first_name: string | null
           id: string
           last_name: string | null
+          phone_number: string | null
           updated_at: string
         }
         Insert: {
@@ -234,6 +247,7 @@ export type Database = {
           first_name?: string | null
           id: string
           last_name?: string | null
+          phone_number?: string | null
           updated_at?: string
         }
         Update: {
@@ -243,6 +257,7 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
+          phone_number?: string | null
           updated_at?: string
         }
         Relationships: [

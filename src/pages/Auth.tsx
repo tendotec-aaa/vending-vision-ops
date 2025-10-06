@@ -20,6 +20,10 @@ const signupSchema = authSchema.extend({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   companyName: z.string().min(1, 'Company name is required'),
+  address: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  companyEmail: z.string().email('Invalid company email').optional().or(z.literal('')),
+  taxId: z.string().optional(),
 });
 
 export default function Auth() {
@@ -34,6 +38,10 @@ export default function Auth() {
     firstName: '',
     lastName: '',
     companyName: '',
+    address: '',
+    phoneNumber: '',
+    companyEmail: '',
+    taxId: '',
   });
 
   useEffect(() => {
@@ -93,7 +101,13 @@ export default function Auth() {
       // Create company
       const { data: company, error: companyError } = await supabase
         .from('companies')
-        .insert({ name: signupData.companyName })
+        .insert({ 
+          name: signupData.companyName,
+          address: signupData.address || null,
+          phone_number: signupData.phoneNumber || null,
+          company_email: signupData.companyEmail || null,
+          tax_id: signupData.taxId || null,
+        })
         .select()
         .single();
 
@@ -108,6 +122,7 @@ export default function Auth() {
           first_name: signupData.firstName,
           last_name: signupData.lastName,
           email: signupData.email,
+          phone_number: signupData.phoneNumber || null,
         });
 
       if (profileError) throw profileError;
@@ -204,7 +219,7 @@ export default function Auth() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="companyName">Company Name</Label>
+                  <Label htmlFor="companyName">Company Name *</Label>
                   <Input
                     id="companyName"
                     value={signupData.companyName}
@@ -213,7 +228,47 @@ export default function Auth() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
+                  <Label htmlFor="address">Company Address</Label>
+                  <Input
+                    id="address"
+                    value={signupData.address}
+                    onChange={(e) => setSignupData({ ...signupData, address: e.target.value })}
+                    placeholder="123 Main St, City, State ZIP"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumber">Phone Number</Label>
+                    <Input
+                      id="phoneNumber"
+                      type="tel"
+                      value={signupData.phoneNumber}
+                      onChange={(e) => setSignupData({ ...signupData, phoneNumber: e.target.value })}
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="taxId">Tax ID</Label>
+                    <Input
+                      id="taxId"
+                      value={signupData.taxId}
+                      onChange={(e) => setSignupData({ ...signupData, taxId: e.target.value })}
+                      placeholder="XX-XXXXXXX"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="companyEmail">Company Email</Label>
+                  <Input
+                    id="companyEmail"
+                    type="email"
+                    value={signupData.companyEmail}
+                    onChange={(e) => setSignupData({ ...signupData, companyEmail: e.target.value })}
+                    placeholder="info@company.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">Your Email *</Label>
                   <Input
                     id="signup-email"
                     type="email"
