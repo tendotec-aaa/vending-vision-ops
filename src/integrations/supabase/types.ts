@@ -166,6 +166,51 @@ export type Database = {
           },
         ]
       }
+      machine_toy_slots: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          machine_id: string
+          slot_number: number
+          toy_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          machine_id: string
+          slot_number: number
+          toy_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          machine_id?: string
+          slot_number?: number
+          toy_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_toy_slots_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_toy_slots_toy_id_fkey"
+            columns: ["toy_id"]
+            isOneToOne: false
+            referencedRelation: "toys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       machines: {
         Row: {
           company_id: string
@@ -415,7 +460,22 @@ export type Database = {
           machine_id?: string
           setup_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "setup_machines_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "setup_machines_setup_id_fkey"
+            columns: ["setup_id"]
+            isOneToOne: false
+            referencedRelation: "setups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       setups: {
         Row: {
@@ -439,7 +499,15 @@ export type Database = {
           location_id?: string | null
           name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "setups_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       suppliers: {
         Row: {
