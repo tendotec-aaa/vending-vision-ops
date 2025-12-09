@@ -12,17 +12,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { User, LogOut, Building2, ChevronLeft, Home } from 'lucide-react';
+import { User, LogOut, Building2, PanelLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import { useLocation } from 'react-router-dom';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 export function Header() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { signOut, user } = useAuth();
   const [showSignOutDialog, setShowSignOutDialog] = useState(false);
-  
-  const isHomePage = location.pathname === '/' || location.pathname === '/dashboard';
 
   const handleSignOut = async () => {
     try {
@@ -38,17 +35,7 @@ export function Header() {
       <header className="sticky top-0 z-40 bg-background border-b border-border">
         <div className="flex items-center justify-between h-14 px-4 md:px-6">
           <div className="flex items-center gap-2">
-            {!isHomePage && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/')}
-                className="gap-1 mr-2"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <Home className="h-4 w-4" />
-              </Button>
-            )}
+            <SidebarTrigger className="hidden md:flex" />
             <Building2 className="h-5 w-5 text-primary" />
             <h1 className="text-lg font-semibold hidden sm:block">Vending ERP</h1>
           </div>
