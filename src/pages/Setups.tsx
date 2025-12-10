@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Settings } from "lucide-react";
 
@@ -19,7 +18,6 @@ export default function Setups() {
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    location_id: "",
   });
 
   const { data: profile } = useQuery({
@@ -32,18 +30,6 @@ export default function Setups() {
         .single();
       return data;
     },
-  });
-
-  const { data: locations } = useQuery({
-    queryKey: ["locations", profile?.company_id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("locations")
-        .select("*")
-        .eq("company_id", profile?.company_id);
-      return data || [];
-    },
-    enabled: !!profile?.company_id,
   });
 
   const { data: setups } = useQuery({
@@ -59,23 +45,10 @@ export default function Setups() {
     enabled: !!profile?.company_id,
   });
 
-  const { data: locationsMap } = useQuery({
-    queryKey: ["locations_map", profile?.company_id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("locations")
-        .select("id, name")
-        .eq("company_id", profile?.company_id);
-      return data?.reduce((acc, loc) => ({ ...acc, [loc.id]: loc.name }), {} as Record<string, string>) || {};
-    },
-    enabled: !!profile?.company_id,
-  });
-
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       const { error } = await supabase.from("setups").insert({
         name: data.name,
-        location_id: data.location_id || null,
         company_id: profile?.company_id,
       });
       if (error) throw error;
@@ -84,7 +57,7 @@ export default function Setups() {
       queryClient.invalidateQueries({ queryKey: ["setups"] });
       toast({ title: "Setup created successfully" });
       setIsOpen(false);
-      setFormData({ name: "", location_id: "" });
+      setFormData({ name: "" });
     },
   });
 
@@ -114,19 +87,9 @@ export default function Setups() {
                     placeholder="e.g., Standard 7-Toy Configuration"
                   />
                 </div>
-                <div>
-                  <Label>Location (Optional)</Label>
-                  <Select value={formData.location_id} onValueChange={(value) => setFormData({ ...formData, location_id: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations?.map((loc) => (
-                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Setups can be assigned to spots in the Locations page.
+                </p>
                 <Button
                   className="w-full"
                   onClick={() => createMutation.mutate(formData)}
@@ -149,9 +112,9 @@ export default function Setups() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {setup.location_id && locationsMap?.[setup.location_id] && (
-                  <p className="text-sm"><span className="font-medium">Location:</span> {locationsMap[setup.location_id]}</p>
-                )}
+                <p className="text-sm text-muted-foreground">
+                  Assign this setup to spots in the Locations page.
+                </p>
               </CardContent>
             </Card>
           ))}

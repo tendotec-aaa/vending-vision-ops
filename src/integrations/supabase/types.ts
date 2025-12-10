@@ -110,6 +110,54 @@ export type Database = {
         }
         Relationships: []
       }
+      location_spots: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          location_id: string
+          place_name: string | null
+          setup_id: string | null
+          spot_number: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          location_id: string
+          place_name?: string | null
+          setup_id?: string | null
+          spot_number: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          place_name?: string | null
+          setup_id?: string | null
+          spot_number?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_spots_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_spots_setup_id_fkey"
+            columns: ["setup_id"]
+            isOneToOne: false
+            referencedRelation: "setups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address: string | null
@@ -482,32 +530,21 @@ export type Database = {
           company_id: string
           created_at: string
           id: string
-          location_id: string | null
           name: string
         }
         Insert: {
           company_id: string
           created_at?: string
           id?: string
-          location_id?: string | null
           name: string
         }
         Update: {
           company_id?: string
           created_at?: string
           id?: string
-          location_id?: string | null
           name?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "setups_location_id_fkey"
-            columns: ["location_id"]
-            isOneToOne: false
-            referencedRelation: "locations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       suppliers: {
         Row: {
