@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { MobileNav } from '@/components/MobileNav';
-import { MachineSlotManager } from '@/components/MachineSlotManager';
+import { SpotCard } from '@/components/SpotCard';
 import { 
   Collapsible, 
   CollapsibleContent, 
@@ -27,10 +27,8 @@ import {
   Search, 
   Phone, 
   DollarSign, 
-  ChevronDown, 
-  Cpu, 
-  Package,
-  Settings,
+  ChevronDown,
+  Hash,
   Plus
 } from 'lucide-react';
 
@@ -39,7 +37,6 @@ export default function Locations() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set());
-  const [expandedMachines, setExpandedMachines] = useState<Set<string>>(new Set());
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newLocation, setNewLocation] = useState({
     name: '',
@@ -47,6 +44,7 @@ export default function Locations() {
     contact_name: '',
     contact_phone: '',
     rent_amount: '',
+    number_of_spots: '1',
   });
 
   const { data: profile } = useQuery({
@@ -70,6 +68,19 @@ export default function Locations() {
         .select('*')
         .eq('company_id', profile?.company_id)
         .order('name');
+      return data || [];
+    },
+    enabled: !!profile?.company_id,
+  });
+
+  const { data: locationSpots } = useQuery({
+    queryKey: ['location_spots', profile?.company_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('location_spots')
+        .select('*')
+        .eq('company_id', profile?.company_id)
+        .order('spot_number');
       return data || [];
     },
     enabled: !!profile?.company_id,
@@ -126,20 +137,43 @@ export default function Locations() {
 
   const addLocationMutation = useMutation({
     mutationFn: async (locationData: typeof newLocation) => {
-      const { error } = await supabase.from('locations').insert({
+      // First create the location
+      const { data: location, error: locationError } = await supabase
+        .from('locations')
+        .insert({
+          company_id: profile?.company_id!,
+          name: locationData.name,
+          address: locationData.address || null,
+          contact_name: locationData.contact_name || null,
+          contact_phone: locationData.contact_phone || null,
+          rent_amount: locationData.rent_amount ? parseFloat(locationData.rent_amount) : null,
+        })
+        .select()
+        .single();
+      
+      if (locationError) throw locationError;
+
+      // Then create the spots
+      const numberOfSpots = parseInt(locationData.number_of_spots) || 1;
+      const spotsToCreate = Array.from({ length: numberOfSpots }, (_, i) => ({
+        location_id: location.id,
         company_id: profile?.company_id!,
-        name: locationData.name,
-        address: locationData.address || null,
-        contact_name: locationData.contact_name || null,
-        contact_phone: locationData.contact_phone || null,
-        rent_amount: locationData.rent_amount ? parseFloat(locationData.rent_amount) : null,
-      });
-      if (error) throw error;
+        spot_number: i + 1,
+        place_name: null,
+        setup_id: null,
+      }));
+
+      const { error: spotsError } = await supabase
+        .from('location_spots')
+        .insert(spotsToCreate);
+
+      if (spotsError) throw spotsError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['locations'] });
+      queryClient.invalidateQueries({ queryKey: ['location_spots'] });
       setIsAddDialogOpen(false);
-      setNewLocation({ name: '', address: '', contact_name: '', contact_phone: '', rent_amount: '' });
+      setNewLocation({ name: '', address: '', contact_name: '', contact_phone: '', rent_amount: '', number_of_spots: '1' });
       toast.success('Location added successfully');
     },
     onError: (error) => {
@@ -152,6 +186,11 @@ export default function Locations() {
       toast.error('Location name is required');
       return;
     }
+    const spots = parseInt(newLocation.number_of_spots);
+    if (isNaN(spots) || spots < 1 || spots > 20) {
+      toast.error('Number of spots must be between 1 and 20');
+      return;
+    }
     addLocationMutation.mutate(newLocation);
   };
 
@@ -160,16 +199,8 @@ export default function Locations() {
     location.address?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const getSetupsForLocation = (locationId: string) => {
-    return setups?.filter(s => s.location_id === locationId) || [];
-  };
-
-  const getMachinesForSetup = (setupId: string) => {
-    return setupMachines?.filter(sm => sm.setup_id === setupId) || [];
-  };
-
-  const getSlotsForMachine = (machineId: string) => {
-    return machineSlots?.filter(ms => ms.machine_id === machineId) || [];
+  const getSpotsForLocation = (locationId: string) => {
+    return locationSpots?.filter(s => s.location_id === locationId) || [];
   };
 
   const toggleLocation = (locationId: string) => {
@@ -184,31 +215,12 @@ export default function Locations() {
     });
   };
 
-  const toggleMachine = (machineId: string) => {
-    setExpandedMachines(prev => {
-      const next = new Set(prev);
-      if (next.has(machineId)) {
-        next.delete(machineId);
-      } else {
-        next.add(machineId);
-      }
-      return next;
-    });
-  };
-
-  const getMachineCount = (locationId: string) => {
-    const locationSetups = getSetupsForLocation(locationId);
-    return locationSetups.reduce((count, setup) => {
-      return count + getMachinesForSetup(setup.id).length;
-    }, 0);
-  };
-
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-8">
       <header className="bg-card border-b border-border p-4 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold">Locations & Machines</h1>
+            <h1 className="text-2xl font-bold">Locations & Spots</h1>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">
@@ -227,8 +239,23 @@ export default function Locations() {
                       id="name"
                       value={newLocation.name}
                       onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
-                      placeholder="e.g., Downtown Mall"
+                      placeholder="e.g., TTGYE"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="number_of_spots">Number of Spots * (1-20)</Label>
+                    <Input
+                      id="number_of_spots"
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={newLocation.number_of_spots}
+                      onChange={(e) => setNewLocation({ ...newLocation, number_of_spots: e.target.value })}
+                      placeholder="How many spots at this location?"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This will create {newLocation.name || 'Location'} #1, #2, etc.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="address">Address</Label>
@@ -266,6 +293,9 @@ export default function Locations() {
                       onChange={(e) => setNewLocation({ ...newLocation, rent_amount: e.target.value })}
                       placeholder="0.00"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Will be divided equally between spots
+                    </p>
                   </div>
                   <Button 
                     onClick={handleAddLocation} 
@@ -302,9 +332,11 @@ export default function Locations() {
           </Card>
         ) : (
           filteredLocations?.map((location) => {
-            const locationSetups = getSetupsForLocation(location.id);
-            const machineCount = getMachineCount(location.id);
+            const spots = getSpotsForLocation(location.id);
             const isExpanded = expandedLocations.has(location.id);
+            const rentPerSpot = location.rent_amount && spots.length > 0 
+              ? Number(location.rent_amount) / spots.length 
+              : null;
 
             return (
               <Collapsible 
@@ -330,13 +362,15 @@ export default function Locations() {
                             )}
                             <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                               <span className="flex items-center gap-1">
-                                <Settings className="h-3 w-3" />
-                                {locationSetups.length} setup{locationSetups.length !== 1 ? 's' : ''}
+                                <Hash className="h-3 w-3" />
+                                {spots.length} spot{spots.length !== 1 ? 's' : ''}
                               </span>
-                              <span className="flex items-center gap-1">
-                                <Cpu className="h-3 w-3" />
-                                {machineCount} machine{machineCount !== 1 ? 's' : ''}
-                              </span>
+                              {location.rent_amount && (
+                                <span className="flex items-center gap-1">
+                                  <DollarSign className="h-3 w-3" />
+                                  ${Number(location.rent_amount).toFixed(2)}/month
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -367,89 +401,32 @@ export default function Locations() {
                             {location.contact_phone}
                           </div>
                         )}
-                        {location.rent_amount && (
+                        {rentPerSpot !== null && (
                           <div className="flex items-center gap-1">
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
-                            ${location.rent_amount}/month
+                            ${rentPerSpot.toFixed(2)}/spot
                           </div>
                         )}
                       </div>
 
-                      {/* Setups and Machines */}
-                      {locationSetups.length === 0 ? (
-                        <p className="text-sm text-muted-foreground italic">No setups at this location</p>
+                      {/* Spots */}
+                      {spots.length === 0 ? (
+                        <p className="text-sm text-muted-foreground italic">No spots at this location</p>
                       ) : (
-                        <div className="space-y-3">
-                          {locationSetups.map((setup) => {
-                            const machines = getMachinesForSetup(setup.id);
-                            return (
-                              <div key={setup.id} className="bg-muted/30 rounded-lg p-3">
-                                <h4 className="font-medium text-sm flex items-center gap-2 mb-3">
-                                  <Settings className="h-4 w-4 text-primary" />
-                                  {setup.name}
-                                  <Badge variant="outline" className="text-xs">
-                                    {machines.length} machine{machines.length !== 1 ? 's' : ''}
-                                  </Badge>
-                                </h4>
-
-                                {machines.length === 0 ? (
-                                  <p className="text-xs text-muted-foreground italic ml-6">No machines in this setup</p>
-                                ) : (
-                                  <div className="space-y-2 ml-6">
-                                    {machines.map((sm) => {
-                                      const machine = sm.machines;
-                                      if (!machine) return null;
-                                      const slots = getSlotsForMachine(machine.id);
-                                      const isMachineExpanded = expandedMachines.has(machine.id);
-
-                                      return (
-                                        <Collapsible
-                                          key={machine.id}
-                                          open={isMachineExpanded}
-                                          onOpenChange={() => toggleMachine(machine.id)}
-                                        >
-                                          <div className="bg-background rounded-md border border-border">
-                                            <CollapsibleTrigger asChild>
-                                              <div className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
-                                                <div className="flex items-center justify-between">
-                                                  <div className="flex items-center gap-2">
-                                                    <Cpu className="h-4 w-4 text-primary" />
-                                                    <span className="font-medium text-sm">{machine.serial_number}</span>
-                                                    <Badge variant="secondary" className="text-xs">
-                                                      {slots.filter(s => s.toy_id).length}/8 slots filled
-                                                    </Badge>
-                                                  </div>
-                                                  <ChevronDown className={`h-4 w-4 transition-transform ${isMachineExpanded ? 'rotate-180' : ''}`} />
-                                                </div>
-                                              </div>
-                                            </CollapsibleTrigger>
-
-                                            <CollapsibleContent>
-                                              <div className="px-3 pb-3 border-t border-border pt-3">
-                                                <h5 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-                                                  <Package className="h-3 w-3" />
-                                                  Toy Slots (2-8 slots)
-                                                </h5>
-                                                {profile?.company_id && (
-                                                  <MachineSlotManager
-                                                    machineId={machine.id}
-                                                    companyId={profile.company_id}
-                                                    slots={slots}
-                                                    toys={toys || []}
-                                                    slotCount={8}
-                                                  />
-                                                )}
-                                              </div>
-                                            </CollapsibleContent>
-                                          </div>
-                                        </Collapsible>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                        <div className="space-y-2">
+                          {spots.map((spot) => (
+                            <SpotCard
+                              key={spot.id}
+                              spot={spot}
+                              locationName={location.name}
+                              rentPerSpot={rentPerSpot}
+                              setups={setups || []}
+                              setupMachines={setupMachines || []}
+                              machineSlots={machineSlots || []}
+                              toys={toys || []}
+                              companyId={profile?.company_id || ''}
+                            />
+                          ))}
                         </div>
                       )}
                     </CardContent>
