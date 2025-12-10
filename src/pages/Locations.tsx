@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { MobileNav } from '@/components/MobileNav';
 import { MachineSlotManager } from '@/components/MachineSlotManager';
 import { 
@@ -13,6 +14,14 @@ import {
   CollapsibleContent, 
   CollapsibleTrigger 
 } from '@/components/ui/collapsible';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { toast } from 'sonner';
 import { 
   MapPin, 
   Search, 
@@ -21,14 +30,24 @@ import {
   ChevronDown, 
   Cpu, 
   Package,
-  Settings
+  Settings,
+  Plus
 } from 'lucide-react';
 
 export default function Locations() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set());
   const [expandedMachines, setExpandedMachines] = useState<Set<string>>(new Set());
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newLocation, setNewLocation] = useState({
+    name: '',
+    address: '',
+    contact_name: '',
+    contact_phone: '',
+    rent_amount: '',
+  });
 
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
@@ -105,6 +124,37 @@ export default function Locations() {
     enabled: !!profile?.company_id,
   });
 
+  const addLocationMutation = useMutation({
+    mutationFn: async (locationData: typeof newLocation) => {
+      const { error } = await supabase.from('locations').insert({
+        company_id: profile?.company_id!,
+        name: locationData.name,
+        address: locationData.address || null,
+        contact_name: locationData.contact_name || null,
+        contact_phone: locationData.contact_phone || null,
+        rent_amount: locationData.rent_amount ? parseFloat(locationData.rent_amount) : null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
+      setIsAddDialogOpen(false);
+      setNewLocation({ name: '', address: '', contact_name: '', contact_phone: '', rent_amount: '' });
+      toast.success('Location added successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to add location: ' + error.message);
+    },
+  });
+
+  const handleAddLocation = () => {
+    if (!newLocation.name.trim()) {
+      toast.error('Location name is required');
+      return;
+    }
+    addLocationMutation.mutate(newLocation);
+  };
+
   const filteredLocations = locations?.filter((location) =>
     location.name.toLowerCase().includes(search.toLowerCase()) ||
     location.address?.toLowerCase().includes(search.toLowerCase())
@@ -157,7 +207,77 @@ export default function Locations() {
     <div className="min-h-screen bg-background pb-20 md:pb-8">
       <header className="bg-card border-b border-border p-4 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl font-bold mb-4">Locations & Machines</h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold">Locations & Machines</h1>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Location
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Location</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Location Name *</Label>
+                    <Input
+                      id="name"
+                      value={newLocation.name}
+                      onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
+                      placeholder="e.g., Downtown Mall"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Address</Label>
+                    <Input
+                      id="address"
+                      value={newLocation.address}
+                      onChange={(e) => setNewLocation({ ...newLocation, address: e.target.value })}
+                      placeholder="123 Main St, City"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="contact_name">Contact Name</Label>
+                      <Input
+                        id="contact_name"
+                        value={newLocation.contact_name}
+                        onChange={(e) => setNewLocation({ ...newLocation, contact_name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="contact_phone">Contact Phone</Label>
+                      <Input
+                        id="contact_phone"
+                        value={newLocation.contact_phone}
+                        onChange={(e) => setNewLocation({ ...newLocation, contact_phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rent_amount">Monthly Rent ($)</Label>
+                    <Input
+                      id="rent_amount"
+                      type="number"
+                      value={newLocation.rent_amount}
+                      onChange={(e) => setNewLocation({ ...newLocation, rent_amount: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <Button 
+                    onClick={handleAddLocation} 
+                    className="w-full"
+                    disabled={addLocationMutation.isPending}
+                  >
+                    {addLocationMutation.isPending ? 'Adding...' : 'Add Location'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
