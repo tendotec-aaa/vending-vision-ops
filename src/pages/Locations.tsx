@@ -45,6 +45,7 @@ export default function Locations() {
     contact_phone: '',
     rent_amount: '',
     number_of_spots: '1',
+    start_date: '',
   });
 
   const { data: profile } = useQuery({
@@ -147,6 +148,7 @@ export default function Locations() {
           contact_name: locationData.contact_name || null,
           contact_phone: locationData.contact_phone || null,
           rent_amount: locationData.rent_amount ? parseFloat(locationData.rent_amount) : null,
+          start_date: locationData.start_date || null,
         })
         .select()
         .single();
@@ -173,7 +175,7 @@ export default function Locations() {
       queryClient.invalidateQueries({ queryKey: ['locations'] });
       queryClient.invalidateQueries({ queryKey: ['location_spots'] });
       setIsAddDialogOpen(false);
-      setNewLocation({ name: '', address: '', contact_name: '', contact_phone: '', rent_amount: '', number_of_spots: '1' });
+      setNewLocation({ name: '', address: '', contact_name: '', contact_phone: '', rent_amount: '', number_of_spots: '1', start_date: '' });
       toast.success('Location added successfully');
     },
     onError: (error) => {
@@ -296,6 +298,15 @@ export default function Locations() {
                     <p className="text-xs text-muted-foreground">
                       Will be divided equally between spots
                     </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="start_date">Start Date</Label>
+                    <Input
+                      id="start_date"
+                      type="date"
+                      value={newLocation.start_date}
+                      onChange={(e) => setNewLocation({ ...newLocation, start_date: e.target.value })}
+                    />
                   </div>
                   <Button 
                     onClick={handleAddLocation} 

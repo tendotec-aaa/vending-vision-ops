@@ -172,6 +172,7 @@ export type Database = {
           name: string
           rent_amount: number | null
           rent_due_date: string | null
+          start_date: string | null
           updated_at: string
         }
         Insert: {
@@ -187,6 +188,7 @@ export type Database = {
           name: string
           rent_amount?: number | null
           rent_due_date?: string | null
+          start_date?: string | null
           updated_at?: string
         }
         Update: {
@@ -202,6 +204,7 @@ export type Database = {
           name?: string
           rent_amount?: number | null
           rent_due_date?: string | null
+          start_date?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -264,6 +267,7 @@ export type Database = {
           company_id: string
           created_at: string
           id: string
+          model: string | null
           purchase_cost: number | null
           purchase_date: string | null
           serial_number: string
@@ -272,6 +276,7 @@ export type Database = {
           company_id: string
           created_at?: string
           id?: string
+          model?: string | null
           purchase_cost?: number | null
           purchase_date?: string | null
           serial_number: string
@@ -280,6 +285,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           id?: string
+          model?: string | null
           purchase_cost?: number | null
           purchase_date?: string | null
           serial_number?: string
@@ -494,18 +500,21 @@ export type Database = {
           company_id: string
           id: string
           machine_id: string
+          position: string | null
           setup_id: string
         }
         Insert: {
           company_id: string
           id?: string
           machine_id: string
+          position?: string | null
           setup_id: string
         }
         Update: {
           company_id?: string
           id?: string
           machine_id?: string
+          position?: string | null
           setup_id?: string
         }
         Relationships: [
@@ -531,18 +540,21 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          setup_type: string | null
         }
         Insert: {
           company_id: string
           created_at?: string
           id?: string
           name: string
+          setup_type?: string | null
         }
         Update: {
           company_id?: string
           created_at?: string
           id?: string
           name?: string
+          setup_type?: string | null
         }
         Relationships: []
       }
