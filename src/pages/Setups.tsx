@@ -90,6 +90,33 @@ export default function Setups() {
     return availableMachines.filter(m => !selectedIds.includes(m.id));
   };
 
+  // Generate setup name from machine serial numbers
+  const generateSetupName = (type: SetupType, machineSelections: Record<string, string>) => {
+    const config = SETUP_TYPE_CONFIG[type];
+    const positions = config.positions;
+    
+    // Get machines in position order
+    const machinesInOrder = positions.map(pos => {
+      const machineId = machineSelections[pos];
+      return machines?.find(m => m.id === machineId);
+    });
+    
+    // Extract generation letters and numbers
+    // Serial format: "A-001" → generation "A", number "001"
+    const parts = machinesInOrder.map(machine => {
+      if (!machine?.serial_number) return { gen: "?", num: "00" };
+      const match = machine.serial_number.match(/^([A-Z])-(\d+)$/);
+      if (!match) return { gen: "?", num: "00" };
+      return { gen: match[1], num: match[2].slice(-2).padStart(2, "0") }; // Last 2 digits
+    });
+    
+    // Combine: generations + "-" + concatenated numbers
+    const generations = parts.map(p => p.gen).join("");
+    const numbers = parts.map(p => p.num).join("");
+    
+    return `${generations}-${numbers}`;
+  };
+
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!setupType) throw new Error("Please select a setup type");
@@ -104,8 +131,8 @@ export default function Setups() {
         }
       }
 
-      // Create setup with type as name
-      const setupName = `${config.label} Setup`;
+      // Auto-generate setup name from machine serial numbers
+      const setupName = generateSetupName(setupType, selectedMachines);
       const { data: setup, error: setupError } = await supabase
         .from("setups")
         .insert({
