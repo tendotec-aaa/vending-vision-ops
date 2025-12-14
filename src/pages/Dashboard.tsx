@@ -89,59 +89,67 @@ export default function Dashboard() {
       {/* Stats Cards */}
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Total Locations
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-primary">{stats.totalLocations}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {stats.activeLocations} active
-              </p>
-            </CardContent>
-          </Card>
+          <a href="/locations">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Total Locations
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-primary">{stats.totalLocations}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.activeLocations} active
+                </p>
+              </CardContent>
+            </Card>
+          </a>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <ClipboardList className="h-4 w-4" />
-                Recent Reports
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-secondary">{stats.recentReports}</p>
-              <p className="text-xs text-muted-foreground mt-1">Last 7 days</p>
-            </CardContent>
-          </Card>
+          <a href="/visit-report">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4" />
+                  Recent Reports
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-secondary">{stats.recentReports}</p>
+                <p className="text-xs text-muted-foreground mt-1">Last 7 days</p>
+              </CardContent>
+            </Card>
+          </a>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Performance
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-success">Good</p>
-              <p className="text-xs text-muted-foreground mt-1">Overall status</p>
-            </CardContent>
-          </Card>
+          <a href="/routes">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Performance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-success">Good</p>
+                <p className="text-xs text-muted-foreground mt-1">Overall status</p>
+              </CardContent>
+            </Card>
+          </a>
 
-          <Card className={stats.pendingIssues > 0 ? 'border-warning' : ''}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                Issues
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-warning">{stats.pendingIssues}</p>
-              <p className="text-xs text-muted-foreground mt-1">Requires attention</p>
-            </CardContent>
-          </Card>
+          <a href="/maintenance-log">
+            <Card className={`cursor-pointer hover:shadow-lg transition-shadow ${stats.pendingIssues > 0 ? 'border-warning' : ''}`}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Issues
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-warning">{stats.pendingIssues}</p>
+                <p className="text-xs text-muted-foreground mt-1">Requires attention</p>
+              </CardContent>
+            </Card>
+          </a>
         </div>
 
         {/* Quick Actions */}
