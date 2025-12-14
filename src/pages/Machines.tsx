@@ -26,6 +26,7 @@ export default function Machines() {
     number_of_machines: "1",
     purchase_date: "",
     purchase_cost: "",
+    slots_per_machine: "8",
   });
 
   const { data: profile } = useQuery({
@@ -67,6 +68,7 @@ export default function Machines() {
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       const numberOfMachines = parseInt(data.number_of_machines) || 1;
+      const slotsPerMachine = parseInt(data.slots_per_machine) || 8;
       const startNumber = getNextNumberForGeneration(data.generation);
       
       const machinesToCreate = Array.from({ length: numberOfMachines }, (_, i) => ({
@@ -77,14 +79,30 @@ export default function Machines() {
         company_id: profile?.company_id,
       }));
 
-      const { error } = await supabase.from("machines").insert(machinesToCreate);
+      const { data: createdMachines, error } = await supabase
+        .from("machines")
+        .insert(machinesToCreate)
+        .select();
       if (error) throw error;
+
+      // Create toy slots for each machine
+      if (createdMachines && slotsPerMachine > 0) {
+        const slotsToCreate = createdMachines.flatMap((machine) =>
+          Array.from({ length: slotsPerMachine }, (_, i) => ({
+            machine_id: machine.id,
+            slot_number: i + 1,
+            company_id: profile?.company_id,
+          }))
+        );
+        const { error: slotsError } = await supabase.from("machine_toy_slots").insert(slotsToCreate);
+        if (slotsError) throw slotsError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["machines"] });
       toast({ title: "Machines added successfully" });
       setIsOpen(false);
-      setFormData({ model: "", generation: "", number_of_machines: "1", purchase_date: "", purchase_cost: "" });
+      setFormData({ model: "", generation: "", number_of_machines: "1", purchase_date: "", purchase_cost: "", slots_per_machine: "8" });
     },
     onError: (error) => {
       toast({ title: "Error adding machines", description: error.message, variant: "destructive" });
@@ -186,6 +204,17 @@ export default function Machines() {
                     value={formData.purchase_cost}
                     onChange={(e) => setFormData({ ...formData, purchase_cost: e.target.value })}
                     placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="slots_per_machine">Slots per Machine *</Label>
+                  <Input
+                    id="slots_per_machine"
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={formData.slots_per_machine}
+                    onChange={(e) => setFormData({ ...formData, slots_per_machine: e.target.value })}
                   />
                 </div>
                 <Button
