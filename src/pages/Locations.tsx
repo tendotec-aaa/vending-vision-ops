@@ -21,6 +21,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { 
   MapPin, 
@@ -29,7 +39,9 @@ import {
   DollarSign, 
   ChevronDown,
   Hash,
-  Plus
+  Plus,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 
 export default function Locations() {
@@ -38,6 +50,8 @@ export default function Locations() {
   const [search, setSearch] = useState('');
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set());
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<any | null>(null);
+  const [deleteLocationId, setDeleteLocationId] = useState<string | null>(null);
   const [newLocation, setNewLocation] = useState({
     name: '',
     address: '',
@@ -183,6 +197,61 @@ export default function Locations() {
     },
   });
 
+  const updateLocationMutation = useMutation({
+    mutationFn: async (locationData: any) => {
+      const { error } = await supabase
+        .from('locations')
+        .update({
+          name: locationData.name,
+          address: locationData.address || null,
+          contact_name: locationData.contact_name || null,
+          contact_phone: locationData.contact_phone || null,
+          rent_amount: locationData.rent_amount ? parseFloat(locationData.rent_amount) : null,
+          start_date: locationData.start_date || null,
+        })
+        .eq('id', locationData.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
+      setEditingLocation(null);
+      toast.success('Location updated successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to update location: ' + error.message);
+    },
+  });
+
+  const deleteLocationMutation = useMutation({
+    mutationFn: async (locationId: string) => {
+      // First delete associated spots
+      const { error: spotsError } = await supabase
+        .from('location_spots')
+        .delete()
+        .eq('location_id', locationId);
+      
+      if (spotsError) throw spotsError;
+
+      // Then delete the location
+      const { error: locationError } = await supabase
+        .from('locations')
+        .delete()
+        .eq('id', locationId);
+      
+      if (locationError) throw locationError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
+      queryClient.invalidateQueries({ queryKey: ['location_spots'] });
+      setDeleteLocationId(null);
+      toast.success('Location deleted successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to delete location: ' + error.message);
+    },
+  });
+
   const handleAddLocation = () => {
     if (!newLocation.name.trim()) {
       toast.error('Location name is required');
@@ -194,6 +263,26 @@ export default function Locations() {
       return;
     }
     addLocationMutation.mutate(newLocation);
+  };
+
+  const handleEditLocation = () => {
+    if (!editingLocation?.name?.trim()) {
+      toast.error('Location name is required');
+      return;
+    }
+    updateLocationMutation.mutate(editingLocation);
+  };
+
+  const openEditDialog = (location: any) => {
+    setEditingLocation({
+      id: location.id,
+      name: location.name,
+      address: location.address || '',
+      contact_name: location.contact_name || '',
+      contact_phone: location.contact_phone || '',
+      rent_amount: location.rent_amount?.toString() || '',
+      start_date: location.start_date || '',
+    });
   };
 
   const filteredLocations = locations?.filter((location) =>
@@ -385,7 +474,29 @@ export default function Locations() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditDialog(location);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteLocationId(location.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                           {location.is_prospect && (
                             <Badge variant="outline">Prospect</Badge>
                           )}
@@ -448,6 +559,97 @@ export default function Locations() {
           })
         )}
       </main>
+
+      {/* Edit Location Dialog */}
+      <Dialog open={!!editingLocation} onOpenChange={(open) => !open && setEditingLocation(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Location</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit_name">Location Name *</Label>
+              <Input
+                id="edit_name"
+                value={editingLocation?.name || ''}
+                onChange={(e) => setEditingLocation({ ...editingLocation, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_address">Address</Label>
+              <Input
+                id="edit_address"
+                value={editingLocation?.address || ''}
+                onChange={(e) => setEditingLocation({ ...editingLocation, address: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_contact_name">Contact Name</Label>
+                <Input
+                  id="edit_contact_name"
+                  value={editingLocation?.contact_name || ''}
+                  onChange={(e) => setEditingLocation({ ...editingLocation, contact_name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_contact_phone">Contact Phone</Label>
+                <Input
+                  id="edit_contact_phone"
+                  value={editingLocation?.contact_phone || ''}
+                  onChange={(e) => setEditingLocation({ ...editingLocation, contact_phone: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_rent_amount">Monthly Rent ($)</Label>
+              <Input
+                id="edit_rent_amount"
+                type="number"
+                value={editingLocation?.rent_amount || ''}
+                onChange={(e) => setEditingLocation({ ...editingLocation, rent_amount: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_start_date">Start Date</Label>
+              <Input
+                id="edit_start_date"
+                type="date"
+                value={editingLocation?.start_date || ''}
+                onChange={(e) => setEditingLocation({ ...editingLocation, start_date: e.target.value })}
+              />
+            </div>
+            <Button 
+              onClick={handleEditLocation} 
+              className="w-full"
+              disabled={updateLocationMutation.isPending}
+            >
+              {updateLocationMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteLocationId} onOpenChange={(open) => !open && setDeleteLocationId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Location?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the location and all its spots. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => deleteLocationId && deleteLocationMutation.mutate(deleteLocationId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteLocationMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <MobileNav />
     </div>
