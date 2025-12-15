@@ -277,6 +277,14 @@ export default function Setups() {
     return setupMachines?.filter(sm => sm.setup_id === setupId) || [];
   };
 
+  const getTotalSlotsForSetup = (setupId: string) => {
+    const setupMachinesList = getMachinesForSetup(setupId);
+    return setupMachinesList.reduce((total, sm) => {
+      const machine = sm.machines as { slots_per_machine?: number } | null;
+      return total + (machine?.slots_per_machine || 8);
+    }, 0);
+  };
+
   const handleSetupTypeChange = (value: SetupType) => {
     setSetupType(value);
     setSelectedMachines({});
@@ -435,20 +443,29 @@ export default function Setups() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {setup.setup_type && (
-                    <p className="text-sm">
-                      <span className="font-medium">Type:</span>{" "}
-                      <span className="capitalize">{setup.setup_type}</span>
+                  <div className="flex items-center gap-4 text-sm">
+                    {setup.setup_type && (
+                      <p>
+                        <span className="font-medium">Type:</span>{" "}
+                        <span className="capitalize">{setup.setup_type}</span>
+                      </p>
+                    )}
+                    <p>
+                      <span className="font-medium">Total Slots:</span>{" "}
+                      <span className="text-primary font-semibold">{getTotalSlotsForSetup(setup.id)}</span>
                     </p>
-                  )}
+                  </div>
                   {setupMachinesList.length > 0 ? (
                     <div className="space-y-1">
                       <p className="text-sm font-medium">Machines:</p>
-                      {setupMachinesList.map((sm) => (
-                        <p key={sm.id} className="text-sm text-muted-foreground pl-2">
-                          • <span className="capitalize">{sm.position || "N/A"}</span>: {sm.machines?.serial_number}
-                        </p>
-                      ))}
+                      {setupMachinesList.map((sm) => {
+                        const machine = sm.machines as { serial_number?: string; slots_per_machine?: number } | null;
+                        return (
+                          <p key={sm.id} className="text-sm text-muted-foreground pl-2">
+                            • <span className="capitalize">{sm.position || "N/A"}</span>: {machine?.serial_number} ({machine?.slots_per_machine || 8} slots)
+                          </p>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">No machines assigned</p>
