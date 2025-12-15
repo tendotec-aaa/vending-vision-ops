@@ -271,6 +271,7 @@ export type Database = {
           purchase_cost: number | null
           purchase_date: string | null
           serial_number: string
+          slots_per_machine: number
         }
         Insert: {
           company_id: string
@@ -280,6 +281,7 @@ export type Database = {
           purchase_cost?: number | null
           purchase_date?: string | null
           serial_number: string
+          slots_per_machine?: number
         }
         Update: {
           company_id?: string
@@ -289,6 +291,7 @@ export type Database = {
           purchase_cost?: number | null
           purchase_date?: string | null
           serial_number?: string
+          slots_per_machine?: number
         }
         Relationships: []
       }

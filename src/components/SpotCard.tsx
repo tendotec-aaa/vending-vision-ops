@@ -22,6 +22,7 @@ interface Setup {
 interface Machine {
   id: string;
   serial_number: string;
+  slots_per_machine: number;
 }
 
 interface SetupMachine {
@@ -246,7 +247,7 @@ export function SpotCard({
                                     <Cpu className="h-3 w-3 text-primary" />
                                     <span className="text-xs font-medium">{machine.serial_number}</span>
                                     <Badge variant="secondary" className="text-xs">
-                                      {slots.filter(s => s.toy_id).length}/8 slots
+                                      {slots.filter(s => s.toy_id).length}/{machine.slots_per_machine || 8} slots
                                     </Badge>
                                   </div>
                                   <ChevronDown className={`h-3 w-3 transition-transform ${isMachineExpanded ? 'rotate-180' : ''}`} />
@@ -265,7 +266,7 @@ export function SpotCard({
                                   companyId={companyId}
                                   slots={slots}
                                   toys={toys}
-                                  slotCount={8}
+                                  slotCount={machine.slots_per_machine || 8}
                                 />
                               </div>
                             </CollapsibleContent>
