@@ -22,6 +22,7 @@ type Machine = {
   model: string | null;
   purchase_date: string | null;
   purchase_cost: number | null;
+  slots_per_machine: number;
   company_id: string;
   created_at: string;
 };
@@ -226,10 +227,11 @@ export default function Machines() {
   };
 
   const exportToCSV = () => {
-    const headers = ["Serial Number", "Model", "Purchase Date", "Purchase Cost"];
+    const headers = ["Serial Number", "Model", "Slots", "Purchase Date", "Purchase Cost"];
     const rows = filteredMachines.map(m => [
       m.serial_number,
       m.model || "",
+      m.slots_per_machine?.toString() || "8",
       m.purchase_date || "",
       m.purchase_cost?.toString() || "",
     ]);
@@ -425,6 +427,7 @@ export default function Machines() {
                   </TableHead>
                   <TableHead>Serial Number</TableHead>
                   <TableHead>Model</TableHead>
+                  <TableHead>Slots</TableHead>
                   <TableHead>Purchase Date</TableHead>
                   <TableHead>Cost</TableHead>
                   <TableHead className="w-24">Actions</TableHead>
@@ -433,7 +436,7 @@ export default function Machines() {
               <TableBody>
                 {filteredMachines.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No machines found
                     </TableCell>
                   </TableRow>
@@ -448,6 +451,7 @@ export default function Machines() {
                       </TableCell>
                       <TableCell className="font-medium">{machine.serial_number}</TableCell>
                       <TableCell>{machine.model || "—"}</TableCell>
+                      <TableCell>{machine.slots_per_machine || 8}</TableCell>
                       <TableCell>
                         {machine.purchase_date
                           ? new Date(machine.purchase_date).toLocaleDateString()
