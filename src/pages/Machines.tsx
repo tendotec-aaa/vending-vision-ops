@@ -98,6 +98,7 @@ export default function Machines() {
         model: data.model || null,
         purchase_date: data.purchase_date || null,
         purchase_cost: data.purchase_cost ? parseFloat(data.purchase_cost) : null,
+        slots_per_machine: slotsPerMachine,
         company_id: profile?.company_id,
       }));
 
