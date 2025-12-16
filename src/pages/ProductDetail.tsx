@@ -1,13 +1,19 @@
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { MobileNav } from "@/components/MobileNav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import { 
   ArrowLeft, 
   Package2, 
@@ -18,14 +24,28 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   AlertTriangle,
-  Calendar
+  Calendar,
+  Pencil
 } from "lucide-react";
 import { format } from "date-fns";
+
+const PRODUCT_TYPES = ["Toys", "Spare Parts", "Stickers", "Other"] as const;
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    product_name: "",
+    product_type: "" as typeof PRODUCT_TYPES[number] | "",
+    product_type_other: "",
+    product_category_id: "",
+    cogs: "",
+    quantity_bodega: "",
+  });
 
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
@@ -52,6 +72,61 @@ export default function ProductDetail() {
     },
     enabled: !!id,
   });
+
+  // Fetch categories
+  const { data: categories } = useQuery({
+    queryKey: ["product_categories", profile?.company_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("product_categories")
+        .select("*")
+        .eq("company_id", profile?.company_id)
+        .order("name");
+      return data || [];
+    },
+    enabled: !!profile?.company_id,
+  });
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: async (data: typeof editForm) => {
+      const { error } = await supabase
+        .from("products")
+        .update({
+          product_name: data.product_name,
+          product_type: data.product_type,
+          product_type_other: data.product_type === "Other" ? data.product_type_other : null,
+          product_category_id: data.product_category_id || null,
+          cogs: parseFloat(data.cogs) || 0,
+          quantity_bodega: parseInt(data.quantity_bodega) || 0,
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product", id] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast({ title: "Product updated successfully" });
+      setIsEditOpen(false);
+    },
+    onError: (error) => {
+      toast({ title: "Error updating product", description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Populate edit form when product loads
+  useEffect(() => {
+    if (product) {
+      setEditForm({
+        product_name: product.product_name,
+        product_type: product.product_type as typeof PRODUCT_TYPES[number],
+        product_type_other: product.product_type_other || "",
+        product_category_id: product.product_category_id || "",
+        cogs: String(product.cogs),
+        quantity_bodega: String(product.quantity_bodega),
+      });
+    }
+  }, [product]);
 
   // Fetch visit report stock history for this product (sales/inventory movements)
   const { data: stockHistory } = useQuery({
@@ -131,6 +206,10 @@ export default function ProductDetail() {
               )}
             </div>
           </div>
+          <Button variant="outline" onClick={() => setIsEditOpen(true)}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
         </div>
 
         {/* Summary Cards */}
@@ -401,6 +480,102 @@ export default function ProductDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Product</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit_product_name">Product Name</Label>
+              <Input
+                id="edit_product_name"
+                value={editForm.product_name}
+                onChange={(e) => setEditForm({ ...editForm, product_name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_product_type">Product Type</Label>
+              <Select 
+                value={editForm.product_type} 
+                onValueChange={(v) => setEditForm({ ...editForm, product_type: v as typeof PRODUCT_TYPES[number] })}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {PRODUCT_TYPES.map(type => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {editForm.product_type === "Other" && (
+              <div>
+                <Label htmlFor="edit_product_type_other">Specify Type</Label>
+                <Input
+                  id="edit_product_type_other"
+                  value={editForm.product_type_other}
+                  onChange={(e) => setEditForm({ ...editForm, product_type_other: e.target.value })}
+                />
+              </div>
+            )}
+            <div>
+              <Label htmlFor="edit_category">Category (Optional)</Label>
+              <Select 
+                value={editForm.product_category_id} 
+                onValueChange={(v) => setEditForm({ ...editForm, product_category_id: v })}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="">No category</SelectItem>
+                  {categories?.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit_cogs">COGS ($)</Label>
+                <Input
+                  id="edit_cogs"
+                  type="number"
+                  step="0.01"
+                  value={editForm.cogs}
+                  onChange={(e) => setEditForm({ ...editForm, cogs: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_quantity_bodega">Qty in Bodega</Label>
+                <Input
+                  id="edit_quantity_bodega"
+                  type="number"
+                  value={editForm.quantity_bodega}
+                  onChange={(e) => setEditForm({ ...editForm, quantity_bodega: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setIsEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                className="flex-1" 
+                onClick={() => updateMutation.mutate(editForm)}
+                disabled={!editForm.product_name || !editForm.product_type || updateMutation.isPending}
+              >
+                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <MobileNav />
     </div>
   );
