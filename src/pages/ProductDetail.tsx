@@ -96,7 +96,7 @@ export default function ProductDetail() {
           product_name: data.product_name,
           product_type: data.product_type,
           product_type_other: data.product_type === "Other" ? data.product_type_other : null,
-          product_category_id: data.product_category_id || null,
+          product_category_id: data.product_category_id && data.product_category_id !== "none" ? data.product_category_id : null,
           cogs: parseFloat(data.cogs) || 0,
           quantity_bodega: parseInt(data.quantity_bodega) || 0,
         })
@@ -532,7 +532,7 @@ export default function ProductDetail() {
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
-                  <SelectItem value="">No category</SelectItem>
+                  <SelectItem value="none">No category</SelectItem>
                   {categories?.map(cat => (
                     <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                   ))}
