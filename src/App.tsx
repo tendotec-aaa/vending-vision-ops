@@ -8,7 +8,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Locations from "./pages/Locations";
-import VisitReport from "./pages/VisitReport";
+import VisitReports from "./pages/VisitReports";
+import NewVisitReport from "./pages/NewVisitReport";
 import Profile from "./pages/Profile";
 import RoutesPage from "./pages/Routes";
 import MaintenanceLog from "./pages/MaintenanceLog";
@@ -36,7 +37,8 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/locations" element={<ProtectedRoute><Locations /></ProtectedRoute>} />
-            <Route path="/visit-report" element={<ProtectedRoute><VisitReport /></ProtectedRoute>} />
+            <Route path="/visit-reports" element={<ProtectedRoute><VisitReports /></ProtectedRoute>} />
+            <Route path="/visit-report/new" element={<ProtectedRoute><NewVisitReport /></ProtectedRoute>} />
             <Route path="/routes" element={<ProtectedRoute><RoutesPage /></ProtectedRoute>} />
             <Route path="/maintenance" element={<ProtectedRoute><MaintenanceLog /></ProtectedRoute>} />
             <Route path="/machines" element={<ProtectedRoute><Machines /></ProtectedRoute>} />
