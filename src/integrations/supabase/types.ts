@@ -274,6 +274,7 @@ export type Database = {
           id: string
           machine_id: string
           slot_number: number
+          toy_capacity: number | null
           toy_id: string | null
           updated_at: string
         }
@@ -283,6 +284,7 @@ export type Database = {
           id?: string
           machine_id: string
           slot_number: number
+          toy_capacity?: number | null
           toy_id?: string | null
           updated_at?: string
         }
@@ -292,6 +294,7 @@ export type Database = {
           id?: string
           machine_id?: string
           slot_number?: number
+          toy_capacity?: number | null
           toy_id?: string | null
           updated_at?: string
         }
@@ -699,10 +702,14 @@ export type Database = {
           discrepancy: number | null
           has_issue: boolean | null
           id: string
+          is_replacing_toy: boolean | null
           issue_description: string | null
           issue_severity: string | null
+          jam_type: string | null
           last_stock: number | null
           machine_id: string | null
+          removed_for_replacement: number | null
+          replacement_toy_id: string | null
           slot_number: number | null
           toy_id: string
           units_refilled: number | null
@@ -718,10 +725,14 @@ export type Database = {
           discrepancy?: number | null
           has_issue?: boolean | null
           id?: string
+          is_replacing_toy?: boolean | null
           issue_description?: string | null
           issue_severity?: string | null
+          jam_type?: string | null
           last_stock?: number | null
           machine_id?: string | null
+          removed_for_replacement?: number | null
+          replacement_toy_id?: string | null
           slot_number?: number | null
           toy_id: string
           units_refilled?: number | null
@@ -737,10 +748,14 @@ export type Database = {
           discrepancy?: number | null
           has_issue?: boolean | null
           id?: string
+          is_replacing_toy?: boolean | null
           issue_description?: string | null
           issue_severity?: string | null
+          jam_type?: string | null
           last_stock?: number | null
           machine_id?: string | null
+          removed_for_replacement?: number | null
+          replacement_toy_id?: string | null
           slot_number?: number | null
           toy_id?: string
           units_refilled?: number | null
@@ -755,6 +770,13 @@ export type Database = {
             columns: ["machine_id"]
             isOneToOne: false
             referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_report_stock_replacement_toy_id_fkey"
+            columns: ["replacement_toy_id"]
+            isOneToOne: false
+            referencedRelation: "toys"
             referencedColumns: ["id"]
           },
           {

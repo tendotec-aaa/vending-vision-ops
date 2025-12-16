@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { MobileNav } from '@/components/MobileNav';
 import { 
   Select, 
@@ -20,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { format, differenceInDays } from 'date-fns';
 import { 
   MapPin, 
   Clock, 
@@ -30,7 +32,13 @@ import {
   CheckCircle,
   Loader2,
   ArrowLeft,
-  Camera
+  Camera,
+  Upload,
+  User,
+  Calendar,
+  TrendingUp,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 
 interface ToySlotAudit {
@@ -47,6 +55,11 @@ interface ToySlotAudit {
   has_issue: boolean;
   issue_description: string;
   issue_severity: string;
+  toy_capacity: number;
+  jam_type: string | null;
+  is_replacing_toy: boolean;
+  replacement_toy_id: string | null;
+  removed_for_replacement: number;
 }
 
 interface MachineAudit {
@@ -59,31 +72,31 @@ export default function NewVisitReport() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedSpot, setSelectedSpot] = useState('');
   const [visitType, setVisitType] = useState('routine');
-  const [timeIn, setTimeIn] = useState('');
-  const [timeOut, setTimeOut] = useState('');
+  const [timeIn] = useState(new Date().toISOString());
   const [accessNotes, setAccessNotes] = useState('');
   const [coinBoxNotes, setCoinBoxNotes] = useState('');
-  const [photoUrl, setPhotoUrl] = useState('');
-  const [isJammed, setIsJammed] = useState(false);
-  const [jamStatus, setJamStatus] = useState('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [hasObservation, setHasObservation] = useState(false);
   const [observation, setObservation] = useState('');
   const [generalNotes, setGeneralNotes] = useState('');
   const [isSigned, setIsSigned] = useState(false);
   const [machineAudits, setMachineAudits] = useState<MachineAudit[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('company_id')
+        .select('*, companies(*)')
         .eq('id', user?.id)
         .maybeSingle();
       return data;
@@ -96,7 +109,7 @@ export default function NewVisitReport() {
     queryFn: async () => {
       const { data } = await supabase
         .from('locations')
-        .select('id, name')
+        .select('*')
         .eq('company_id', profile?.company_id)
         .eq('is_active', true)
         .order('name');
@@ -110,8 +123,9 @@ export default function NewVisitReport() {
     queryFn: async () => {
       const { data } = await supabase
         .from('location_spots')
-        .select('id, location_id, spot_number, place_name, setup_id')
+        .select('*')
         .eq('company_id', profile?.company_id)
+        .not('setup_id', 'is', null)
         .order('spot_number');
       return data || [];
     },
@@ -167,11 +181,61 @@ export default function NewVisitReport() {
     enabled: !!profile?.company_id,
   });
 
-  // Filter spots for selected location
+  const { data: lastVisitReport } = useQuery({
+    queryKey: ['last_visit_report', selectedSpot],
+    queryFn: async () => {
+      if (!selectedSpot) return null;
+      const { data } = await supabase
+        .from('visit_reports')
+        .select('*, visit_report_stock(*)')
+        .eq('spot_id', selectedSpot)
+        .order('visit_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!selectedSpot,
+  });
+
+  // Filter spots for selected location - only spots with setups
   const spotsForLocation = useMemo(() => {
     if (!selectedLocation) return [];
-    return locationSpots?.filter(s => s.location_id === selectedLocation) || [];
+    return locationSpots?.filter(s => s.location_id === selectedLocation && s.setup_id) || [];
   }, [selectedLocation, locationSpots]);
+
+  const selectedLocationData = locations?.find(l => l.id === selectedLocation);
+  const selectedSpotData = locationSpots?.find(s => s.id === selectedSpot);
+  const selectedSetup = setups?.find(s => s.id === selectedSpotData?.setup_id);
+
+  // Calculate days since last visit
+  const daysSinceLastVisit = useMemo(() => {
+    if (!selectedSpotData?.spot_last_visit_report) return null;
+    return differenceInDays(new Date(), new Date(selectedSpotData.spot_last_visit_report));
+  }, [selectedSpotData]);
+
+  // Calculate rent cost since last visit
+  const rentCostSinceLastVisit = useMemo(() => {
+    if (!selectedLocationData?.rent_amount || daysSinceLastVisit === null) return 0;
+    const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+    const spots = locationSpots?.filter(s => s.location_id === selectedLocation).length || 1;
+    const rentPerSpot = Number(selectedLocationData.rent_amount) / spots;
+    return (rentPerSpot / daysInMonth) * daysSinceLastVisit;
+  }, [selectedLocationData, daysSinceLastVisit, locationSpots, selectedLocation]);
+
+  // Calculate total capacity and current stock
+  const stockCapacityInfo = useMemo(() => {
+    let totalCapacity = 0;
+    let currentStock = 0;
+    machineAudits.forEach(machine => {
+      machine.slots.forEach(slot => {
+        if (slot.toy_id) {
+          totalCapacity += slot.toy_capacity;
+          currentStock += slot.calculated_stock;
+        }
+      });
+    });
+    return { totalCapacity, currentStock, percentage: totalCapacity > 0 ? (currentStock / totalCapacity) * 100 : 0 };
+  }, [machineAudits]);
 
   // Load machines when spot is selected
   useEffect(() => {
@@ -199,20 +263,31 @@ export default function NewVisitReport() {
         const existingSlot = slotsForMachine.find(s => s.slot_number === i + 1);
         const toy = existingSlot?.toys;
         
+        // Get last stock from previous visit report
+        const lastStockRecord = lastVisitReport?.visit_report_stock?.find(
+          (vrs: any) => vrs.machine_id === machine.id && vrs.slot_number === i + 1
+        );
+        const lastStock = lastStockRecord?.current_stock ?? 0;
+        
         return {
           toy_id: existingSlot?.toy_id || '',
-          toy_name: toy?.name || `Empty Slot ${i + 1}`,
+          toy_name: toy?.name || '',
           slot_number: i + 1,
-          last_stock: 0, // TODO: Get from last visit report
+          last_stock: lastStock,
           units_sold: 0,
           units_refilled: 0,
           units_removed: 0,
-          calculated_stock: 0,
+          calculated_stock: lastStock,
           audited_count: null,
           discrepancy: 0,
           has_issue: false,
           issue_description: '',
           issue_severity: 'low',
+          toy_capacity: (existingSlot as any)?.toy_capacity ?? 20,
+          jam_type: null,
+          is_replacing_toy: false,
+          replacement_toy_id: null,
+          removed_for_replacement: 0,
         };
       });
 
@@ -224,22 +299,20 @@ export default function NewVisitReport() {
     }).filter(Boolean) as MachineAudit[];
 
     setMachineAudits(audits);
-  }, [selectedSpot, locationSpots, setupMachines, machineSlots]);
+  }, [selectedSpot, locationSpots, setupMachines, machineSlots, lastVisitReport]);
 
-  // Calculate total cash removed
-  const totalCashRemoved = useMemo(() => {
+  // Calculate total cash recollected
+  const totalCashRecollected = useMemo(() => {
     let total = 0;
     machineAudits.forEach(machine => {
       machine.slots.forEach(slot => {
-        const toy = toys?.find(t => t.id === slot.toy_id);
-        if (toy && slot.units_sold > 0) {
-          // Assuming a standard price per unit - you may want to adjust this
-          total += slot.units_sold * 0.50; // $0.50 per play
+        if (slot.toy_id && slot.units_sold > 0) {
+          total += slot.units_sold * 0.50;
         }
       });
     });
     return total;
-  }, [machineAudits, toys]);
+  }, [machineAudits]);
 
   const updateSlotField = (machineIndex: number, slotIndex: number, field: keyof ToySlotAudit, value: any) => {
     setMachineAudits(prev => {
@@ -247,12 +320,19 @@ export default function NewVisitReport() {
       const slot = { ...updated[machineIndex].slots[slotIndex] };
       (slot as any)[field] = value;
 
+      // Handle jam type stock adjustment
+      let jamAdjustment = 0;
+      if (slot.jam_type === 'jammed_with_coins') {
+        jamAdjustment = 1;
+      }
+
       // Recalculate stock
-      slot.calculated_stock = slot.last_stock - slot.units_sold + slot.units_refilled - slot.units_removed;
+      slot.calculated_stock = slot.last_stock - slot.units_sold + slot.units_refilled - slot.units_removed + jamAdjustment;
       
-      // Calculate discrepancy if audited
+      // If audited, update calculated stock to match audited count and record discrepancy
       if (slot.audited_count !== null) {
         slot.discrepancy = slot.audited_count - slot.calculated_stock;
+        slot.calculated_stock = slot.audited_count; // Update to real verified amount
       }
 
       updated[machineIndex].slots[slotIndex] = slot;
@@ -260,9 +340,53 @@ export default function NewVisitReport() {
     });
   };
 
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadPhoto = async (): Promise<string | null> => {
+    if (!photoFile || !profile?.company_id) return null;
+    
+    setUploadingPhoto(true);
+    try {
+      const fileExt = photoFile.name.split('.').pop();
+      const fileName = `${profile.company_id}/${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('visit-photos')
+        .upload(fileName, photoFile);
+      
+      if (error) throw error;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('visit-photos')
+        .getPublicUrl(data.path);
+      
+      return publicUrl;
+    } catch (error: any) {
+      console.error('Error uploading photo:', error);
+      toast.error('Failed to upload photo');
+      return null;
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!selectedLocation) {
       toast.error('Please select a location');
+      return;
+    }
+    if (!selectedSpot) {
+      toast.error('Please select a spot');
       return;
     }
     if (!isSigned) {
@@ -272,26 +396,32 @@ export default function NewVisitReport() {
 
     setIsSubmitting(true);
     try {
+      // Upload photo first if exists
+      let photoUrl = null;
+      if (photoFile) {
+        photoUrl = await uploadPhoto();
+      }
+
+      const timeOut = new Date().toISOString();
+
       // Create visit report
       const { data: report, error: reportError } = await supabase
         .from('visit_reports')
         .insert({
           company_id: profile?.company_id!,
           location_id: selectedLocation,
-          spot_id: selectedSpot || null,
+          spot_id: selectedSpot,
           employee_id: user!.id,
           visit_type: visitType,
-          time_in: timeIn ? new Date(`1970-01-01T${timeIn}`).toISOString() : null,
-          time_out: timeOut ? new Date(`1970-01-01T${timeOut}`).toISOString() : null,
+          time_in: timeIn,
+          time_out: timeOut,
           access_notes: accessNotes || null,
           coin_box_notes: coinBoxNotes || null,
-          photo_url: photoUrl || null,
-          is_jammed: isJammed,
-          jam_status: isJammed ? jamStatus : null,
+          photo_url: photoUrl,
           has_observation: hasObservation,
           observation_text: hasObservation ? observation : null,
           general_notes: generalNotes || null,
-          total_cash_removed: totalCashRemoved,
+          total_cash_removed: totalCashRecollected,
           is_signed: isSigned,
         })
         .select()
@@ -299,14 +429,44 @@ export default function NewVisitReport() {
 
       if (reportError) throw reportError;
 
-      // Insert stock records for each slot
+      // Insert stock records and update toy slots
       const stockRecords: any[] = [];
+      const slotUpdates: { id: string; toy_id: string | null; toy_capacity: number }[] = [];
+
       machineAudits.forEach(machine => {
         machine.slots.forEach(slot => {
-          if (slot.toy_id) {
+          // For installation, update the machine_toy_slots
+          if (visitType === 'installation' && slot.toy_id) {
+            const existingSlot = machineSlots?.find(
+              ms => ms.machine_id === machine.machine_id && ms.slot_number === slot.slot_number
+            );
+            if (existingSlot) {
+              slotUpdates.push({
+                id: existingSlot.id,
+                toy_id: slot.toy_id,
+                toy_capacity: slot.toy_capacity,
+              });
+            }
+          }
+
+          // Handle toy replacement
+          if (slot.is_replacing_toy && slot.replacement_toy_id) {
+            const existingSlot = machineSlots?.find(
+              ms => ms.machine_id === machine.machine_id && ms.slot_number === slot.slot_number
+            );
+            if (existingSlot) {
+              slotUpdates.push({
+                id: existingSlot.id,
+                toy_id: slot.replacement_toy_id,
+                toy_capacity: slot.toy_capacity,
+              });
+            }
+          }
+
+          if (slot.toy_id || slot.replacement_toy_id) {
             stockRecords.push({
               visit_report_id: report.id,
-              toy_id: slot.toy_id,
+              toy_id: slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id,
               machine_id: machine.machine_id,
               slot_number: slot.slot_number,
               last_stock: slot.last_stock,
@@ -320,10 +480,22 @@ export default function NewVisitReport() {
               has_issue: slot.has_issue,
               issue_description: slot.has_issue ? slot.issue_description : null,
               issue_severity: slot.has_issue ? slot.issue_severity : null,
+              jam_type: slot.jam_type,
+              is_replacing_toy: slot.is_replacing_toy,
+              replacement_toy_id: slot.replacement_toy_id,
+              removed_for_replacement: slot.removed_for_replacement,
             });
           }
         });
       });
+
+      // Update machine toy slots
+      for (const update of slotUpdates) {
+        await supabase
+          .from('machine_toy_slots')
+          .update({ toy_id: update.toy_id, toy_capacity: update.toy_capacity })
+          .eq('id', update.id);
+      }
 
       if (stockRecords.length > 0) {
         const { error: stockError } = await supabase
@@ -333,6 +505,8 @@ export default function NewVisitReport() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['visit_reports'] });
+      queryClient.invalidateQueries({ queryKey: ['location_spots'] });
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
       toast.success('Visit report submitted successfully!');
       navigate('/visit-reports');
     } catch (error: any) {
@@ -343,8 +517,8 @@ export default function NewVisitReport() {
     }
   };
 
-  const selectedSpotData = locationSpots?.find(s => s.id === selectedSpot);
-  const selectedSetup = setups?.find(s => s.id === selectedSpotData?.setup_id);
+  const isInstallation = visitType === 'installation';
+  const isAudit = visitType === 'audit';
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-8">
@@ -363,6 +537,26 @@ export default function NewVisitReport() {
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-4">
+        {/* User Profile Card */}
+        <Card className="bg-gradient-to-r from-primary/10 to-primary/5">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
+                <User className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold">
+                  {profile?.first_name} {profile?.last_name}
+                </p>
+                <p className="text-sm text-muted-foreground">{profile?.email}</p>
+                <p className="text-xs text-muted-foreground">
+                  Started: {format(new Date(timeIn), 'PPp')}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Step 1: Location & Spot Selection */}
         <Card>
           <CardHeader>
@@ -392,7 +586,7 @@ export default function NewVisitReport() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="spot">Spot</Label>
+                <Label htmlFor="spot">Spot * (with setup only)</Label>
                 <Select value={selectedSpot} onValueChange={setSelectedSpot} disabled={!selectedLocation}>
                   <SelectTrigger id="spot">
                     <SelectValue placeholder={selectedLocation ? "Select spot" : "Select location first"} />
@@ -429,42 +623,87 @@ export default function NewVisitReport() {
                 <div className="text-sm text-muted-foreground">Assigned Setup:</div>
                 <div className="font-medium">{selectedSetup.name}</div>
                 <div className="text-sm text-muted-foreground mt-1">
-                  {machineAudits.length} machine(s) to audit
+                  {machineAudits.length} machine(s) to {isInstallation ? 'set up' : 'audit'}
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Step 2: Visit Audit */}
+        {/* General Info Card */}
+        {selectedSpotData && selectedLocationData && (
+          <Card className="bg-gradient-to-br from-card to-muted/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Location Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-3 bg-background rounded-lg">
+                  <DollarSign className="h-5 w-5 text-primary mx-auto mb-1" />
+                  <div className="text-xs text-muted-foreground">Monthly Rent</div>
+                  <div className="font-bold">${Number(selectedLocationData.rent_amount || 0).toFixed(2)}</div>
+                </div>
+                <div className="text-center p-3 bg-background rounded-lg">
+                  <Calendar className="h-5 w-5 text-primary mx-auto mb-1" />
+                  <div className="text-xs text-muted-foreground">Last Visit</div>
+                  <div className="font-bold">
+                    {selectedSpotData.spot_last_visit_report 
+                      ? format(new Date(selectedSpotData.spot_last_visit_report), 'MMM d')
+                      : 'Never'}
+                  </div>
+                </div>
+                <div className="text-center p-3 bg-background rounded-lg">
+                  <Clock className="h-5 w-5 text-primary mx-auto mb-1" />
+                  <div className="text-xs text-muted-foreground">Days Since</div>
+                  <div className="font-bold">{daysSinceLastVisit ?? 'N/A'}</div>
+                </div>
+                <div className="text-center p-3 bg-background rounded-lg">
+                  <DollarSign className="h-5 w-5 text-orange-500 mx-auto mb-1" />
+                  <div className="text-xs text-muted-foreground">Rent Cost</div>
+                  <div className="font-bold">${rentCostSinceLastVisit.toFixed(2)}</div>
+                </div>
+              </div>
+
+              {machineAudits.length > 0 && (
+                <div className="mt-4 p-3 bg-background rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Stock Capacity</span>
+                    <span className="text-sm text-muted-foreground">
+                      {stockCapacityInfo.currentStock} / {stockCapacityInfo.totalCapacity}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={stockCapacityInfo.percentage} 
+                    className={`h-3 ${stockCapacityInfo.percentage < 30 ? 'bg-destructive/20' : 'bg-muted'}`}
+                  />
+                  {stockCapacityInfo.percentage < 30 && (
+                    <div className="flex items-center gap-1 mt-2 text-destructive text-sm">
+                      <AlertCircle className="h-4 w-4" />
+                      Low stock alert!
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 2: Visit Details */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
               Step 2: Visit Details
             </CardTitle>
-            <CardDescription>Record timing and general visit information</CardDescription>
+            <CardDescription>Record visit information</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="timeIn">Time In</Label>
-                <Input
-                  id="timeIn"
-                  type="time"
-                  value={timeIn}
-                  onChange={(e) => setTimeIn(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="timeOut">Time Out</Label>
-                <Input
-                  id="timeOut"
-                  type="time"
-                  value={timeOut}
-                  onChange={(e) => setTimeOut(e.target.value)}
-                />
-              </div>
+            <div className="p-3 bg-muted rounded-lg">
+              <div className="text-sm text-muted-foreground">Time In (Auto-recorded)</div>
+              <div className="font-medium">{format(new Date(timeIn), 'PPp')}</div>
             </div>
 
             <div className="space-y-2">
@@ -487,26 +726,12 @@ export default function NewVisitReport() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="photo">Photo URL</Label>
-              <div className="flex gap-2">
-                <Camera className="h-5 w-5 text-muted-foreground mt-2" />
-                <Input
-                  id="photo"
-                  type="url"
-                  placeholder="https://..."
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                />
-              </div>
-            </div>
-
             <div className="p-3 bg-primary/10 rounded-lg">
               <div className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-primary" />
                 <div>
-                  <div className="text-sm text-muted-foreground">Total Cash Removed (Auto-calculated)</div>
-                  <div className="text-2xl font-bold">${totalCashRemoved.toFixed(2)}</div>
+                  <div className="text-sm text-muted-foreground">Total Cash Recollected (Auto-calculated)</div>
+                  <div className="text-2xl font-bold">${totalCashRecollected.toFixed(2)}</div>
                 </div>
               </div>
             </div>
@@ -519,9 +744,13 @@ export default function NewVisitReport() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5 text-primary" />
-                Step 3: Inventory Audit
+                Step 3: {isInstallation ? 'Machine Setup' : 'Inventory Audit'}
               </CardTitle>
-              <CardDescription>Record inventory for each machine</CardDescription>
+              <CardDescription>
+                {isInstallation 
+                  ? 'Assign toys to each slot and set capacity' 
+                  : 'Record inventory for each machine'}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {machineAudits.map((machine, machineIndex) => (
@@ -537,110 +766,255 @@ export default function NewVisitReport() {
                     {machine.slots.map((slot, slotIndex) => (
                       <div key={slot.slot_number} className="p-3 border rounded-lg space-y-3">
                         <div className="flex items-center justify-between">
-                          <div className="font-medium text-sm">
-                            Slot {slot.slot_number}: {slot.toy_name}
+                          <div className="font-medium text-sm flex items-center gap-2">
+                            <Package className="h-4 w-4" />
+                            Slot {slot.slot_number}
+                            {slot.toy_name && !isInstallation && (
+                              <Badge variant="secondary">{slot.toy_name}</Badge>
+                            )}
                           </div>
                           {slot.discrepancy !== 0 && (
                             <Badge variant={slot.discrepancy < 0 ? "destructive" : "default"}>
-                              {slot.discrepancy > 0 ? '+' : ''}{slot.discrepancy} discrepancy
+                              {slot.discrepancy > 0 ? '+' : ''}{slot.discrepancy} {slot.discrepancy < 0 ? 'shortage' : 'surplus'}
                             </Badge>
                           )}
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Last Stock</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={slot.last_stock}
-                              onChange={(e) => updateSlotField(machineIndex, slotIndex, 'last_stock', parseInt(e.target.value) || 0)}
-                              className="h-8"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Units Sold</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={slot.units_sold}
-                              onChange={(e) => updateSlotField(machineIndex, slotIndex, 'units_sold', parseInt(e.target.value) || 0)}
-                              className="h-8"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Refilled</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={slot.units_refilled}
-                              onChange={(e) => updateSlotField(machineIndex, slotIndex, 'units_refilled', parseInt(e.target.value) || 0)}
-                              className="h-8"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Removed</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={slot.units_removed}
-                              onChange={(e) => updateSlotField(machineIndex, slotIndex, 'units_removed', parseInt(e.target.value) || 0)}
-                              className="h-8"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Calculated Stock:</span>
-                          <span className="font-medium">{slot.calculated_stock}</span>
-                        </div>
-
-                        {visitType === 'audit' && (
-                          <div className="space-y-1">
-                            <Label className="text-xs">Audited Count (Physical)</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              placeholder="Enter if performing physical count"
-                              value={slot.audited_count ?? ''}
-                              onChange={(e) => updateSlotField(machineIndex, slotIndex, 'audited_count', e.target.value ? parseInt(e.target.value) : null)}
-                              className="h-8"
-                            />
+                        {/* Installation Mode: Select Toy */}
+                        {isInstallation && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Assign Toy *</Label>
+                              <Select
+                                value={slot.toy_id}
+                                onValueChange={(v) => {
+                                  updateSlotField(machineIndex, slotIndex, 'toy_id', v);
+                                  const toy = toys?.find(t => t.id === v);
+                                  updateSlotField(machineIndex, slotIndex, 'toy_name', toy?.name || '');
+                                }}
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="Select toy" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {toys?.map(toy => (
+                                    <SelectItem key={toy.id} value={toy.id}>{toy.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Toy Capacity</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={slot.toy_capacity}
+                                onChange={(e) => updateSlotField(machineIndex, slotIndex, 'toy_capacity', parseInt(e.target.value) || 20)}
+                                className="h-8"
+                              />
+                            </div>
                           </div>
                         )}
 
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            id={`issue-${machine.machine_id}-${slot.slot_number}`}
-                            checked={slot.has_issue}
-                            onCheckedChange={(checked) => updateSlotField(machineIndex, slotIndex, 'has_issue', checked)}
-                          />
-                          <Label htmlFor={`issue-${machine.machine_id}-${slot.slot_number}`} className="text-sm">
-                            Report Issue
-                          </Label>
-                        </div>
+                        {/* Non-Installation Mode */}
+                        {!isInstallation && slot.toy_id && (
+                          <>
+                            {/* Replace Toy Option */}
+                            <div className="flex items-center space-x-2 p-2 bg-muted/30 rounded">
+                              <Checkbox
+                                id={`replace-${machine.machine_id}-${slot.slot_number}`}
+                                checked={slot.is_replacing_toy}
+                                onCheckedChange={(checked) => {
+                                  updateSlotField(machineIndex, slotIndex, 'is_replacing_toy', !!checked);
+                                  if (!checked) {
+                                    updateSlotField(machineIndex, slotIndex, 'replacement_toy_id', null);
+                                    updateSlotField(machineIndex, slotIndex, 'removed_for_replacement', 0);
+                                  }
+                                }}
+                              />
+                              <Label htmlFor={`replace-${machine.machine_id}-${slot.slot_number}`} className="text-sm flex items-center gap-1">
+                                <RefreshCw className="h-3 w-3" />
+                                Replace all toys in this slot
+                              </Label>
+                            </div>
 
-                        {slot.has_issue && (
-                          <div className="space-y-2 pl-4 border-l-2 border-destructive/50">
-                            <Input
-                              placeholder="Describe the issue..."
-                              value={slot.issue_description}
-                              onChange={(e) => updateSlotField(machineIndex, slotIndex, 'issue_description', e.target.value)}
-                            />
-                            <Select
-                              value={slot.issue_severity}
-                              onValueChange={(v) => updateSlotField(machineIndex, slotIndex, 'issue_severity', v)}
-                            >
-                              <SelectTrigger className="w-[150px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="low">Low</SelectItem>
-                                <SelectItem value="medium">Medium</SelectItem>
-                                <SelectItem value="high">High</SelectItem>
-                                <SelectItem value="critical">Critical</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            {slot.is_replacing_toy && (
+                              <div className="grid grid-cols-2 gap-2 p-2 border-l-2 border-primary/50">
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Removed Count</Label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={slot.removed_for_replacement}
+                                    onChange={(e) => updateSlotField(machineIndex, slotIndex, 'removed_for_replacement', parseInt(e.target.value) || 0)}
+                                    className="h-8"
+                                  />
+                                  {slot.removed_for_replacement !== slot.calculated_stock && slot.removed_for_replacement > 0 && (
+                                    <p className="text-xs text-destructive">
+                                      Expected: {slot.calculated_stock} (discrepancy detected)
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">New Toy</Label>
+                                  <Select
+                                    value={slot.replacement_toy_id || ''}
+                                    onValueChange={(v) => updateSlotField(machineIndex, slotIndex, 'replacement_toy_id', v)}
+                                  >
+                                    <SelectTrigger className="h-8">
+                                      <SelectValue placeholder="Select" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {toys?.map(toy => (
+                                        <SelectItem key={toy.id} value={toy.id}>{toy.name}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            )}
+
+                            {!slot.is_replacing_toy && (
+                              <>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Last Stock</Label>
+                                    <Input
+                                      type="number"
+                                      value={slot.last_stock}
+                                      disabled
+                                      className="h-8 bg-muted"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Units Sold</Label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={slot.units_sold}
+                                      onChange={(e) => updateSlotField(machineIndex, slotIndex, 'units_sold', parseInt(e.target.value) || 0)}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Refilled</Label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={slot.units_refilled}
+                                      onChange={(e) => updateSlotField(machineIndex, slotIndex, 'units_refilled', parseInt(e.target.value) || 0)}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Removed</Label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={slot.units_removed}
+                                      onChange={(e) => updateSlotField(machineIndex, slotIndex, 'units_removed', parseInt(e.target.value) || 0)}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between text-sm p-2 bg-muted/30 rounded">
+                                  <span className="text-muted-foreground">Calculated Stock:</span>
+                                  <span className="font-bold">{slot.calculated_stock}</span>
+                                </div>
+
+                                {/* Jam Type Selection */}
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Jam Status (if any)</Label>
+                                  <Select
+                                    value={slot.jam_type || 'none'}
+                                    onValueChange={(v) => updateSlotField(machineIndex, slotIndex, 'jam_type', v === 'none' ? null : v)}
+                                  >
+                                    <SelectTrigger className="h-8">
+                                      <SelectValue placeholder="No jam" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">No Jam</SelectItem>
+                                      <SelectItem value="jammed_with_coins">Jammed WITH Coins (+1 stock)</SelectItem>
+                                      <SelectItem value="jammed_without_coins">Jammed WITHOUT Coins</SelectItem>
+                                      <SelectItem value="jammed_by_coins">Jammed BY Coins</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {/* Audit Mode: Physical Count */}
+                                {isAudit && (
+                                  <div className="space-y-1 p-2 bg-primary/5 rounded">
+                                    <Label className="text-xs font-medium">Audited Count (Physical)</Label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      placeholder="Enter physical count"
+                                      value={slot.audited_count ?? ''}
+                                      onChange={(e) => updateSlotField(machineIndex, slotIndex, 'audited_count', e.target.value ? parseInt(e.target.value) : null)}
+                                      className="h-8"
+                                    />
+                                    {slot.audited_count !== null && slot.discrepancy !== 0 && (
+                                      <p className={`text-xs font-medium ${slot.discrepancy < 0 ? 'text-destructive' : 'text-green-600'}`}>
+                                        {slot.discrepancy < 0 ? 'Shortage' : 'Surplus'}: {Math.abs(slot.discrepancy)} units (stock updated to {slot.audited_count})
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Capacity Info */}
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <span>Capacity: {slot.toy_capacity}</span>
+                                  <span className={slot.calculated_stock < slot.toy_capacity * 0.3 ? 'text-destructive' : ''}>
+                                    {Math.round((slot.calculated_stock / slot.toy_capacity) * 100)}% full
+                                  </span>
+                                </div>
+                              </>
+                            )}
+
+                            {/* Issue Reporting */}
+                            <div className="flex items-center space-x-2">
+                              <Switch
+                                id={`issue-${machine.machine_id}-${slot.slot_number}`}
+                                checked={slot.has_issue}
+                                onCheckedChange={(checked) => updateSlotField(machineIndex, slotIndex, 'has_issue', checked)}
+                              />
+                              <Label htmlFor={`issue-${machine.machine_id}-${slot.slot_number}`} className="text-sm">
+                                Report Issue
+                              </Label>
+                            </div>
+
+                            {slot.has_issue && (
+                              <div className="space-y-2 pl-4 border-l-2 border-destructive/50">
+                                <Input
+                                  placeholder="Describe the issue..."
+                                  value={slot.issue_description}
+                                  onChange={(e) => updateSlotField(machineIndex, slotIndex, 'issue_description', e.target.value)}
+                                />
+                                <Select
+                                  value={slot.issue_severity}
+                                  onValueChange={(v) => updateSlotField(machineIndex, slotIndex, 'issue_severity', v)}
+                                >
+                                  <SelectTrigger className="w-[150px]">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="low">Low</SelectItem>
+                                    <SelectItem value="medium">Medium</SelectItem>
+                                    <SelectItem value="high">High</SelectItem>
+                                    <SelectItem value="critical">Critical</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {/* Empty slot indicator for non-installation */}
+                        {!isInstallation && !slot.toy_id && (
+                          <div className="text-center py-4 text-muted-foreground">
+                            <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                            <p className="text-sm">Empty Slot - Use Installation visit to assign a toy</p>
                           </div>
                         )}
                       </div>
@@ -652,45 +1026,20 @@ export default function NewVisitReport() {
           </Card>
         )}
 
-        {/* Step 4: Issues & Observations */}
+        {/* Step 4: Observations */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-primary" />
-              Step 4: Issues & Observations
+              Step 4: Observations
             </CardTitle>
-            <CardDescription>Log any general issues or observations</CardDescription>
+            <CardDescription>Add any notes or observations</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <Label htmlFor="jammed" className="text-base">Machine Jammed?</Label>
-                <p className="text-sm text-muted-foreground">Toggle if any machine has issues</p>
-              </div>
-              <Switch
-                id="jammed"
-                checked={isJammed}
-                onCheckedChange={setIsJammed}
-              />
-            </div>
-
-            {isJammed && (
-              <div className="space-y-2 animate-fade-in">
-                <Label htmlFor="jamStatus">Jam Status *</Label>
-                <Input
-                  id="jamStatus"
-                  placeholder="e.g., Blocked by coin, Display failure"
-                  value={jamStatus}
-                  onChange={(e) => setJamStatus(e.target.value)}
-                  required={isJammed}
-                />
-              </div>
-            )}
-
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div className="space-y-0.5">
-                <Label htmlFor="observation" className="text-base">General Observation?</Label>
-                <p className="text-sm text-muted-foreground">Add notes about this visit</p>
+                <Label htmlFor="observation" className="text-base">Add Observation?</Label>
+                <p className="text-sm text-muted-foreground">Notes about this visit</p>
               </div>
               <Switch
                 id="observation"
@@ -726,16 +1075,76 @@ export default function NewVisitReport() {
           </CardContent>
         </Card>
 
-        {/* Step 5: Sign Off */}
+        {/* Step 5: Photo & Sign Off */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-primary" />
-              Step 5: Sign Off
+              Step 5: Photo & Sign Off
             </CardTitle>
-            <CardDescription>Confirm the accuracy of this report</CardDescription>
+            <CardDescription>Upload a photo and confirm the report</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Photo Upload */}
+            <div className="space-y-2">
+              <Label>Visit Photo</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoSelect}
+                className="hidden"
+              />
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-1"
+                >
+                  <Camera className="h-4 w-4 mr-2" />
+                  Take Photo
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.removeAttribute('capture');
+                      fileInputRef.current.click();
+                      fileInputRef.current.setAttribute('capture', 'environment');
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload
+                </Button>
+              </div>
+              {photoPreview && (
+                <div className="relative mt-2">
+                  <img 
+                    src={photoPreview} 
+                    alt="Preview" 
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="absolute top-2 right-2"
+                    onClick={() => {
+                      setPhotoFile(null);
+                      setPhotoPreview(null);
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Sign Off */}
             <div className="flex items-start space-x-3 p-4 border rounded-lg">
               <Checkbox
                 id="signOff"
@@ -756,12 +1165,12 @@ export default function NewVisitReport() {
               onClick={handleSubmit} 
               className="w-full" 
               size="lg" 
-              disabled={isSubmitting || !isSigned}
+              disabled={isSubmitting || !isSigned || uploadingPhoto}
             >
-              {isSubmitting ? (
+              {isSubmitting || uploadingPhoto ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Submitting...
+                  {uploadingPhoto ? 'Uploading Photo...' : 'Submitting...'}
                 </>
               ) : (
                 'Submit Report'
