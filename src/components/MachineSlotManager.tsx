@@ -6,39 +6,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Package, Loader2 } from "lucide-react";
 
-interface Toy {
+interface Product {
   id: string;
-  name: string;
+  product_name: string;
 }
 
 interface ToySlot {
   id: string;
   slot_number: number;
   toy_id: string | null;
-  toys?: Toy;
+  product_id: string | null;
+  products?: Product;
 }
 
 interface Props {
   machineId: string;
   companyId: string;
   slots: ToySlot[];
-  toys: Toy[];
+  products: Product[];
   slotCount: number;
 }
 
-export function MachineSlotManager({ machineId, companyId, slots, toys, slotCount }: Props) {
+export function MachineSlotManager({ machineId, companyId, slots, products, slotCount }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [pendingSlot, setPendingSlot] = useState<number | null>(null);
 
   const updateSlotMutation = useMutation({
-    mutationFn: async ({ slotNumber, toyId }: { slotNumber: number; toyId: string | null }) => {
+    mutationFn: async ({ slotNumber, productId }: { slotNumber: number; productId: string | null }) => {
       const existingSlot = slots.find(s => s.slot_number === slotNumber);
       
       if (existingSlot) {
         const { error } = await supabase
           .from("machine_toy_slots")
-          .update({ toy_id: toyId })
+          .update({ product_id: productId })
           .eq("id", existingSlot.id);
         if (error) throw error;
       } else {
@@ -48,7 +49,7 @@ export function MachineSlotManager({ machineId, companyId, slots, toys, slotCoun
             machine_id: machineId,
             company_id: companyId,
             slot_number: slotNumber,
-            toy_id: toyId,
+            product_id: productId,
           });
         if (error) throw error;
       }
@@ -65,16 +66,16 @@ export function MachineSlotManager({ machineId, companyId, slots, toys, slotCoun
     },
   });
 
-  const getSlotToy = (slotNumber: number) => {
+  const getSlotProduct = (slotNumber: number) => {
     const slot = slots.find(s => s.slot_number === slotNumber);
-    return slot?.toy_id || "";
+    return slot?.product_id || "";
   };
 
-  const handleSlotChange = (slotNumber: number, toyId: string) => {
+  const handleSlotChange = (slotNumber: number, productId: string) => {
     setPendingSlot(slotNumber);
     updateSlotMutation.mutate({ 
       slotNumber, 
-      toyId: toyId === "empty" ? null : toyId 
+      productId: productId === "empty" ? null : productId 
     });
   };
 
@@ -87,7 +88,7 @@ export function MachineSlotManager({ machineId, companyId, slots, toys, slotCoun
             Slot {slotNum}
           </label>
           <Select
-            value={getSlotToy(slotNum) || "empty"}
+            value={getSlotProduct(slotNum) || "empty"}
             onValueChange={(value) => handleSlotChange(slotNum, value)}
             disabled={pendingSlot === slotNum}
           >
@@ -100,9 +101,9 @@ export function MachineSlotManager({ machineId, companyId, slots, toys, slotCoun
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="empty">Empty</SelectItem>
-              {toys.map((toy) => (
-                <SelectItem key={toy.id} value={toy.id}>
-                  {toy.name}
+              {products.map((product) => (
+                <SelectItem key={product.id} value={product.id}>
+                  {product.product_name}
                 </SelectItem>
               ))}
             </SelectContent>

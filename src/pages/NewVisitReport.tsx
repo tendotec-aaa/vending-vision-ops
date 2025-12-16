@@ -162,21 +162,22 @@ export default function NewVisitReport() {
     queryFn: async () => {
       const { data } = await supabase
         .from('machine_toy_slots')
-        .select('*, toys(*)')
+        .select('*, products(*)')
         .eq('company_id', profile?.company_id);
       return data || [];
     },
     enabled: !!profile?.company_id,
   });
 
-  const { data: toys } = useQuery({
-    queryKey: ['toys', profile?.company_id],
+  const { data: products } = useQuery({
+    queryKey: ['products_toys', profile?.company_id],
     queryFn: async () => {
       const { data } = await supabase
-        .from('toys')
-        .select('id, name, cogs')
+        .from('products')
+        .select('id, product_name, cogs')
         .eq('company_id', profile?.company_id)
-        .order('name');
+        .eq('product_type', 'Toys')
+        .order('product_name');
       return data || [];
     },
     enabled: !!profile?.company_id,
@@ -281,7 +282,7 @@ export default function NewVisitReport() {
 
       const slots: ToySlotAudit[] = Array.from({ length: slotCount }, (_, i) => {
         const existingSlot = slotsForMachine.find(s => s.slot_number === i + 1);
-        const toy = existingSlot?.toys;
+        const product = existingSlot?.products;
         
         // Get last stock from previous visit report
         const lastStockRecord = lastVisitReport?.visit_report_stock?.find(
@@ -290,8 +291,8 @@ export default function NewVisitReport() {
         const lastStock = lastStockRecord?.current_stock ?? 0;
         
         return {
-          toy_id: existingSlot?.toy_id || '',
-          toy_name: toy?.name || '',
+          toy_id: existingSlot?.product_id || '',
+          toy_name: product?.product_name || '',
           slot_number: i + 1,
           last_stock: lastStock,
           units_sold: 0,
@@ -451,7 +452,7 @@ export default function NewVisitReport() {
 
       // Insert stock records and update toy slots
       const stockRecords: any[] = [];
-      const slotUpdates: { id: string; toy_id: string | null; toy_capacity: number }[] = [];
+      const slotUpdates: { id: string; product_id: string | null; toy_capacity: number }[] = [];
 
       machineAudits.forEach(machine => {
         machine.slots.forEach(slot => {
@@ -463,7 +464,7 @@ export default function NewVisitReport() {
             if (existingSlot) {
               slotUpdates.push({
                 id: existingSlot.id,
-                toy_id: slot.toy_id,
+                product_id: slot.toy_id,
                 toy_capacity: slot.toy_capacity,
               });
             }
@@ -477,7 +478,7 @@ export default function NewVisitReport() {
             if (existingSlot) {
               slotUpdates.push({
                 id: existingSlot.id,
-                toy_id: slot.replacement_toy_id,
+                product_id: slot.replacement_toy_id,
                 toy_capacity: slot.toy_capacity,
               });
             }
@@ -486,6 +487,7 @@ export default function NewVisitReport() {
           if (slot.toy_id || slot.replacement_toy_id) {
             stockRecords.push({
               visit_report_id: report.id,
+              product_id: slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id,
               toy_id: slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id,
               machine_id: machine.machine_id,
               slot_number: slot.slot_number,
@@ -513,7 +515,7 @@ export default function NewVisitReport() {
       for (const update of slotUpdates) {
         await supabase
           .from('machine_toy_slots')
-          .update({ toy_id: update.toy_id, toy_capacity: update.toy_capacity })
+          .update({ product_id: update.product_id, toy_capacity: update.toy_capacity })
           .eq('id', update.id);
       }
 
@@ -810,20 +812,20 @@ export default function NewVisitReport() {
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
                               <Label className="text-xs">Assign Toy *</Label>
-                              <Select
+                            <Select
                                 value={slot.toy_id}
                                 onValueChange={(v) => {
                                   updateSlotField(machineIndex, slotIndex, 'toy_id', v);
-                                  const toy = toys?.find(t => t.id === v);
-                                  updateSlotField(machineIndex, slotIndex, 'toy_name', toy?.name || '');
+                                  const product = products?.find(p => p.id === v);
+                                  updateSlotField(machineIndex, slotIndex, 'toy_name', product?.product_name || '');
                                 }}
                               >
                                 <SelectTrigger className="h-8">
                                   <SelectValue placeholder="Select toy" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {toys?.map(toy => (
-                                    <SelectItem key={toy.id} value={toy.id}>{toy.name}</SelectItem>
+                                  {products?.map(product => (
+                                    <SelectItem key={product.id} value={product.id}>{product.product_name}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
@@ -890,8 +892,8 @@ export default function NewVisitReport() {
                                       <SelectValue placeholder="Select" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {toys?.map(toy => (
-                                        <SelectItem key={toy.id} value={toy.id}>{toy.name}</SelectItem>
+                                      {products?.map(product => (
+                                        <SelectItem key={product.id} value={product.id}>{product.product_name}</SelectItem>
                                       ))}
                                     </SelectContent>
                                   </Select>
