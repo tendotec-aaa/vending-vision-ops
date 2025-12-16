@@ -809,36 +809,57 @@ export default function NewVisitReport() {
 
                         {/* Installation Mode: Select Toy */}
                         {isInstallation && (
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-xs">Assign Toy *</Label>
-                            <Select
-                                value={slot.toy_id}
-                                onValueChange={(v) => {
-                                  updateSlotField(machineIndex, slotIndex, 'toy_id', v);
-                                  const product = products?.find(p => p.id === v);
-                                  updateSlotField(machineIndex, slotIndex, 'toy_name', product?.product_name || '');
-                                }}
-                              >
-                                <SelectTrigger className="h-8">
-                                  <SelectValue placeholder="Select toy" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {products?.map(product => (
-                                    <SelectItem key={product.id} value={product.id}>{product.product_name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Assign Toy *</Label>
+                                <Select
+                                  value={slot.toy_id}
+                                  onValueChange={(v) => {
+                                    updateSlotField(machineIndex, slotIndex, 'toy_id', v);
+                                    const product = products?.find(p => p.id === v);
+                                    updateSlotField(machineIndex, slotIndex, 'toy_name', product?.product_name || '');
+                                  }}
+                                >
+                                  <SelectTrigger className="h-8">
+                                    <SelectValue placeholder="Select toy" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {products?.map(product => (
+                                      <SelectItem key={product.id} value={product.id}>{product.product_name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Toy Capacity</Label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={slot.toy_capacity}
+                                  onChange={(e) => updateSlotField(machineIndex, slotIndex, 'toy_capacity', parseInt(e.target.value) || 20)}
+                                  className="h-8"
+                                />
+                              </div>
                             </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Toy Capacity</Label>
-                              <Input
-                                type="number"
-                                min="1"
-                                value={slot.toy_capacity}
-                                onChange={(e) => updateSlotField(machineIndex, slotIndex, 'toy_capacity', parseInt(e.target.value) || 20)}
-                                className="h-8"
-                              />
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Units Refilled</Label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={slot.units_refilled}
+                                  onChange={(e) => updateSlotField(machineIndex, slotIndex, 'units_refilled', parseInt(e.target.value) || 0)}
+                                  className="h-8"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Current Stock</Label>
+                                <div className="h-8 px-3 flex items-center bg-muted/50 rounded-md text-sm font-medium">
+                                  {slot.calculated_stock}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         )}
