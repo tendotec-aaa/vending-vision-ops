@@ -17,6 +17,7 @@ import Machines from "./pages/Machines";
 import Setups from "./pages/Setups";
 import WarehouseComponents from "./pages/WarehouseComponents";
 import WarehouseProducts from "./pages/WarehouseProducts";
+import ProductDetail from "./pages/ProductDetail";
 import Suppliers from "./pages/Suppliers";
 import Purchases from "./pages/Purchases";
 import Compliance from "./pages/Compliance";
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/setups" element={<ProtectedRoute><Setups /></ProtectedRoute>} />
             <Route path="/warehouse/components" element={<ProtectedRoute><WarehouseComponents /></ProtectedRoute>} />
             <Route path="/warehouse/products" element={<ProtectedRoute><WarehouseProducts /></ProtectedRoute>} />
+            <Route path="/warehouse/products/:id" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
             <Route path="/suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
             <Route path="/purchases" element={<ProtectedRoute><Purchases /></ProtectedRoute>} />
             <Route path="/compliance" element={<ProtectedRoute><Compliance /></ProtectedRoute>} />
