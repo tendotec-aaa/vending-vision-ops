@@ -38,11 +38,12 @@ interface MachineSlot {
   machine_id: string;
   slot_number: number;
   toy_id: string | null;
+  product_id: string | null;
 }
 
-interface Toy {
+interface Product {
   id: string;
-  name: string;
+  product_name: string;
 }
 
 interface Spot {
@@ -66,7 +67,7 @@ interface SpotCardProps {
   setups: Setup[];
   setupMachines: SetupMachine[];
   machineSlots: MachineSlot[];
-  toys: Toy[];
+  products: Product[];
   companyId: string;
   allSpots: Spot[];
 }
@@ -78,7 +79,7 @@ export function SpotCard({
   setups, 
   setupMachines, 
   machineSlots, 
-  toys,
+  products,
   companyId,
   allSpots
 }: SpotCardProps) {
@@ -278,7 +279,7 @@ export function SpotCard({
                                     <Cpu className="h-3 w-3 text-primary" />
                                     <span className="text-xs font-medium">{machine.serial_number}</span>
                                     <Badge variant="secondary" className="text-xs">
-                                      {slots.filter(s => s.toy_id).length}/{machine.slots_per_machine || 8} slots
+                                      {slots.filter(s => s.product_id).length}/{machine.slots_per_machine || 8} slots
                                     </Badge>
                                   </div>
                                   <ChevronDown className={`h-3 w-3 transition-transform ${isMachineExpanded ? 'rotate-180' : ''}`} />
@@ -296,7 +297,7 @@ export function SpotCard({
                                   machineId={machine.id}
                                   companyId={companyId}
                                   slots={slots}
-                                  toys={toys}
+                                  products={products}
                                   slotCount={machine.slots_per_machine || 8}
                                 />
                               </div>

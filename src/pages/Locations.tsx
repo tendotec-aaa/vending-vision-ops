@@ -134,21 +134,22 @@ export default function Locations() {
     queryFn: async () => {
       const { data } = await supabase
         .from('machine_toy_slots')
-        .select('*, toys(*)')
+        .select('*, products(*)')
         .eq('company_id', profile?.company_id);
       return data || [];
     },
     enabled: !!profile?.company_id,
   });
 
-  const { data: toys } = useQuery({
-    queryKey: ['toys', profile?.company_id],
+  const { data: products } = useQuery({
+    queryKey: ['products_toys', profile?.company_id],
     queryFn: async () => {
       const { data } = await supabase
-        .from('toys')
-        .select('id, name')
+        .from('products')
+        .select('id, product_name')
         .eq('company_id', profile?.company_id)
-        .order('name');
+        .eq('product_type', 'Toys')
+        .order('product_name');
       return data || [];
     },
     enabled: !!profile?.company_id,
@@ -568,7 +569,7 @@ export default function Locations() {
                               setups={setups || []}
                               setupMachines={setupMachines || []}
                               machineSlots={machineSlots || []}
-                              toys={toys || []}
+                              products={products || []}
                               companyId={profile?.company_id || ''}
                               allSpots={locationSpots || []}
                             />
