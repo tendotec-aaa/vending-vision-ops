@@ -118,7 +118,13 @@ export type Database = {
           location_id: string
           place_name: string | null
           setup_id: string | null
+          spot_last_visit_report: string | null
+          spot_last_visit_report_id: string | null
           spot_number: number
+          spot_open_maintenance_tickets: number | null
+          spot_start_date: string | null
+          spot_total_rent: number | null
+          spot_total_sales: number | null
           updated_at: string
         }
         Insert: {
@@ -128,7 +134,13 @@ export type Database = {
           location_id: string
           place_name?: string | null
           setup_id?: string | null
+          spot_last_visit_report?: string | null
+          spot_last_visit_report_id?: string | null
           spot_number: number
+          spot_open_maintenance_tickets?: number | null
+          spot_start_date?: string | null
+          spot_total_rent?: number | null
+          spot_total_sales?: number | null
           updated_at?: string
         }
         Update: {
@@ -138,7 +150,13 @@ export type Database = {
           location_id?: string
           place_name?: string | null
           setup_id?: string | null
+          spot_last_visit_report?: string | null
+          spot_last_visit_report_id?: string | null
           spot_number?: number
+          spot_open_maintenance_tickets?: number | null
+          spot_start_date?: string | null
+          spot_total_rent?: number | null
+          spot_total_sales?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -156,6 +174,13 @@ export type Database = {
             referencedRelation: "setups"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "location_spots_spot_last_visit_report_id_fkey"
+            columns: ["spot_last_visit_report_id"]
+            isOneToOne: false
+            referencedRelation: "visit_reports"
+            referencedColumns: ["id"]
+          },
         ]
       }
       locations: {
@@ -169,6 +194,12 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_prospect: boolean | null
+          location_last_visit_report: string | null
+          location_last_visit_report_id: string | null
+          location_open_maintenance_tickets: number | null
+          location_total_cogs: number | null
+          location_total_rent: number | null
+          location_total_sales: number | null
           name: string
           rent_amount: number | null
           rent_due_date: string | null
@@ -185,6 +216,12 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_prospect?: boolean | null
+          location_last_visit_report?: string | null
+          location_last_visit_report_id?: string | null
+          location_open_maintenance_tickets?: number | null
+          location_total_cogs?: number | null
+          location_total_rent?: number | null
+          location_total_sales?: number | null
           name: string
           rent_amount?: number | null
           rent_due_date?: string | null
@@ -201,6 +238,12 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_prospect?: boolean | null
+          location_last_visit_report?: string | null
+          location_last_visit_report_id?: string | null
+          location_open_maintenance_tickets?: number | null
+          location_total_cogs?: number | null
+          location_total_rent?: number | null
+          location_total_sales?: number | null
           name?: string
           rent_amount?: number | null
           rent_due_date?: string | null
@@ -213,6 +256,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_location_last_visit_report_id_fkey"
+            columns: ["location_last_visit_report_id"]
+            isOneToOne: false
+            referencedRelation: "visit_reports"
             referencedColumns: ["id"]
           },
         ]
