@@ -68,6 +68,7 @@ interface SpotCardProps {
   machineSlots: MachineSlot[];
   toys: Toy[];
   companyId: string;
+  allSpots: Spot[];
 }
 
 export function SpotCard({ 
@@ -78,7 +79,8 @@ export function SpotCard({
   setupMachines, 
   machineSlots, 
   toys,
-  companyId 
+  companyId,
+  allSpots
 }: SpotCardProps) {
   const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -241,6 +243,7 @@ export function SpotCard({
                 spotId={spot.id}
                 currentSetupId={spot.setup_id}
                 setups={setups}
+                allSpots={allSpots}
               />
             </div>
 
