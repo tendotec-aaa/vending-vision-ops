@@ -10,9 +10,10 @@ import {
   CollapsibleTrigger 
 } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { ChevronDown, Cpu, Edit2, Check, X, Hash, Settings, Package } from 'lucide-react';
+import { ChevronDown, Cpu, Edit2, Check, X, Hash, Package, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
 import { AssignSetupDialog } from './AssignSetupDialog';
 import { MachineSlotManager } from './MachineSlotManager';
+import { format } from 'date-fns';
 
 interface Setup {
   id: string;
@@ -51,6 +52,11 @@ interface Spot {
   spot_number: number;
   place_name: string | null;
   setup_id: string | null;
+  spot_start_date?: string | null;
+  spot_last_visit_report?: string | null;
+  spot_total_sales?: number | null;
+  spot_total_rent?: number | null;
+  spot_open_maintenance_tickets?: number | null;
 }
 
 interface SpotCardProps {
@@ -137,9 +143,10 @@ export function SpotCard({
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {rentPerSpot !== null && (
-                  <Badge variant="outline" className="text-xs">
-                    ${rentPerSpot.toFixed(2)}/spot
+                {(spot.spot_open_maintenance_tickets ?? 0) > 0 && (
+                  <Badge variant="destructive" className="text-xs">
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    {spot.spot_open_maintenance_tickets}
                   </Badge>
                 )}
                 {assignedSetup ? (
@@ -153,6 +160,27 @@ export function SpotCard({
                 )}
                 <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
               </div>
+            </div>
+            {/* Stats Row */}
+            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+              {(spot.spot_total_sales ?? 0) > 0 && (
+                <span className="flex items-center gap-1">
+                  <DollarSign className="h-3 w-3 text-green-500" />
+                  ${Number(spot.spot_total_sales || 0).toFixed(2)} sales
+                </span>
+              )}
+              {rentPerSpot !== null && (
+                <span className="flex items-center gap-1">
+                  <DollarSign className="h-3 w-3" />
+                  ${rentPerSpot.toFixed(2)}/mo rent
+                </span>
+              )}
+              {spot.spot_last_visit_report && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Last visit: {format(new Date(spot.spot_last_visit_report), 'MMM d')}
+                </span>
+              )}
             </div>
           </div>
         </CollapsibleTrigger>

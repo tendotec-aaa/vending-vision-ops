@@ -32,16 +32,20 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 import { 
   MapPin, 
   Search, 
-  Phone, 
   DollarSign, 
   ChevronDown,
   Hash,
   Plus,
   Pencil,
-  Trash2
+  Trash2,
+  Calendar,
+  TrendingUp,
+  AlertTriangle,
+  Phone
 } from 'lucide-react';
 
 export default function Locations() {
@@ -177,6 +181,7 @@ export default function Locations() {
         spot_number: i + 1,
         place_name: null,
         setup_id: null,
+        spot_start_date: locationData.start_date || null,
       }));
 
       const { error: spotsError } = await supabase
@@ -460,15 +465,33 @@ export default function Locations() {
                             {location.address && (
                               <p className="text-sm text-muted-foreground mt-1">{location.address}</p>
                             )}
-                            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Hash className="h-3 w-3" />
                                 {spots.length} spot{spots.length !== 1 ? 's' : ''}
                               </span>
+                              {(location.location_total_sales ?? 0) > 0 && (
+                                <span className="flex items-center gap-1 text-green-600">
+                                  <TrendingUp className="h-3 w-3" />
+                                  ${Number(location.location_total_sales || 0).toFixed(2)} total sales
+                                </span>
+                              )}
                               {location.rent_amount && (
                                 <span className="flex items-center gap-1">
                                   <DollarSign className="h-3 w-3" />
                                   ${Number(location.rent_amount).toFixed(2)}/month
+                                </span>
+                              )}
+                              {location.location_last_visit_report && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  Last visit: {format(new Date(location.location_last_visit_report), 'MMM d, yyyy')}
+                                </span>
+                              )}
+                              {(location.location_open_maintenance_tickets ?? 0) > 0 && (
+                                <span className="flex items-center gap-1 text-destructive">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {location.location_open_maintenance_tickets} open tickets
                                 </span>
                               )}
                             </div>
