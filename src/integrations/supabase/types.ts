@@ -273,8 +273,10 @@ export type Database = {
           created_at: string
           id: string
           machine_id: string
+          product_id: string | null
           slot_number: number
           toy_capacity: number | null
+          toy_current_stock: number | null
           toy_id: string | null
           updated_at: string
         }
@@ -283,8 +285,10 @@ export type Database = {
           created_at?: string
           id?: string
           machine_id: string
+          product_id?: string | null
           slot_number: number
           toy_capacity?: number | null
+          toy_current_stock?: number | null
           toy_id?: string | null
           updated_at?: string
         }
@@ -293,8 +297,10 @@ export type Database = {
           created_at?: string
           id?: string
           machine_id?: string
+          product_id?: string | null
           slot_number?: number
           toy_capacity?: number | null
+          toy_current_stock?: number | null
           toy_id?: string | null
           updated_at?: string
         }
@@ -304,6 +310,13 @@ export type Database = {
             columns: ["machine_id"]
             isOneToOne: false
             referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_toy_slots_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {
@@ -383,6 +396,92 @@ export type Database = {
           start_date?: string
         }
         Relationships: []
+      }
+      product_categories: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          cogs: number
+          company_id: string
+          created_at: string
+          id: string
+          last_product_purchase: string | null
+          product_category_id: string | null
+          product_name: string
+          product_type: string
+          product_type_other: string | null
+          quantity_bodega: number
+          quantity_in_machines: number
+          quantity_purchased: number
+          quantity_sold: number
+          quantity_surplus_shortage: number
+          total_sales_amount: number
+          updated_at: string
+        }
+        Insert: {
+          cogs?: number
+          company_id: string
+          created_at?: string
+          id?: string
+          last_product_purchase?: string | null
+          product_category_id?: string | null
+          product_name: string
+          product_type: string
+          product_type_other?: string | null
+          quantity_bodega?: number
+          quantity_in_machines?: number
+          quantity_purchased?: number
+          quantity_sold?: number
+          quantity_surplus_shortage?: number
+          total_sales_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          cogs?: number
+          company_id?: string
+          created_at?: string
+          id?: string
+          last_product_purchase?: string | null
+          product_category_id?: string | null
+          product_name?: string
+          product_type?: string
+          product_type_other?: string | null
+          quantity_bodega?: number
+          quantity_in_machines?: number
+          quantity_purchased?: number
+          quantity_sold?: number
+          quantity_surplus_shortage?: number
+          total_sales_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_product_category_id_fkey"
+            columns: ["product_category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -708,6 +807,7 @@ export type Database = {
           jam_type: string | null
           last_stock: number | null
           machine_id: string | null
+          product_id: string | null
           removed_for_replacement: number | null
           replacement_toy_id: string | null
           slot_number: number | null
@@ -731,6 +831,7 @@ export type Database = {
           jam_type?: string | null
           last_stock?: number | null
           machine_id?: string | null
+          product_id?: string | null
           removed_for_replacement?: number | null
           replacement_toy_id?: string | null
           slot_number?: number | null
@@ -754,6 +855,7 @@ export type Database = {
           jam_type?: string | null
           last_stock?: number | null
           machine_id?: string | null
+          product_id?: string | null
           removed_for_replacement?: number | null
           replacement_toy_id?: string | null
           slot_number?: number | null
@@ -770,6 +872,13 @@ export type Database = {
             columns: ["machine_id"]
             isOneToOne: false
             referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_report_stock_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {
