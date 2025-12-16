@@ -45,7 +45,7 @@ const navigationItems = [
 
 const operationsItems = [
   { title: "Locations", url: "/locations", icon: MapPin },
-  { title: "Visit Reports", url: "/visit-report", icon: ClipboardList },
+  { title: "Visit Reports", url: "/visit-reports", icon: ClipboardList },
   { title: "Routes", url: "/routes", icon: Route },
   { title: "Maintenance", url: "/maintenance", icon: Wrench },
 ];

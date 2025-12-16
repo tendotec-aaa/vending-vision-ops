@@ -643,33 +643,70 @@ export type Database = {
       }
       visit_report_stock: {
         Row: {
+          audited_count: number | null
           created_at: string
           current_stock: number
+          discrepancy: number | null
+          has_issue: boolean | null
           id: string
+          issue_description: string | null
+          issue_severity: string | null
           last_stock: number | null
+          machine_id: string | null
+          slot_number: number | null
           toy_id: string
+          units_refilled: number | null
+          units_removed: number | null
+          units_sold: number | null
           variance: number | null
           visit_report_id: string
         }
         Insert: {
+          audited_count?: number | null
           created_at?: string
           current_stock: number
+          discrepancy?: number | null
+          has_issue?: boolean | null
           id?: string
+          issue_description?: string | null
+          issue_severity?: string | null
           last_stock?: number | null
+          machine_id?: string | null
+          slot_number?: number | null
           toy_id: string
+          units_refilled?: number | null
+          units_removed?: number | null
+          units_sold?: number | null
           variance?: number | null
           visit_report_id: string
         }
         Update: {
+          audited_count?: number | null
           created_at?: string
           current_stock?: number
+          discrepancy?: number | null
+          has_issue?: boolean | null
           id?: string
+          issue_description?: string | null
+          issue_severity?: string | null
           last_stock?: number | null
+          machine_id?: string | null
+          slot_number?: number | null
           toy_id?: string
+          units_refilled?: number | null
+          units_removed?: number | null
+          units_sold?: number | null
           variance?: number | null
           visit_report_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "visit_report_stock_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "visit_report_stock_toy_id_fkey"
             columns: ["toy_id"]
@@ -688,43 +725,70 @@ export type Database = {
       }
       visit_reports: {
         Row: {
+          access_notes: string | null
+          coin_box_notes: string | null
           company_id: string
           created_at: string
           employee_id: string | null
+          general_notes: string | null
           has_observation: boolean | null
           id: string
           is_jammed: boolean | null
+          is_signed: boolean | null
           jam_status: string | null
           location_id: string
           observation_text: string | null
           photo_url: string | null
+          spot_id: string | null
+          time_in: string | null
+          time_out: string | null
+          total_cash_removed: number | null
           visit_date: string
+          visit_type: string | null
         }
         Insert: {
+          access_notes?: string | null
+          coin_box_notes?: string | null
           company_id: string
           created_at?: string
           employee_id?: string | null
+          general_notes?: string | null
           has_observation?: boolean | null
           id?: string
           is_jammed?: boolean | null
+          is_signed?: boolean | null
           jam_status?: string | null
           location_id: string
           observation_text?: string | null
           photo_url?: string | null
+          spot_id?: string | null
+          time_in?: string | null
+          time_out?: string | null
+          total_cash_removed?: number | null
           visit_date?: string
+          visit_type?: string | null
         }
         Update: {
+          access_notes?: string | null
+          coin_box_notes?: string | null
           company_id?: string
           created_at?: string
           employee_id?: string | null
+          general_notes?: string | null
           has_observation?: boolean | null
           id?: string
           is_jammed?: boolean | null
+          is_signed?: boolean | null
           jam_status?: string | null
           location_id?: string
           observation_text?: string | null
           photo_url?: string | null
+          spot_id?: string | null
+          time_in?: string | null
+          time_out?: string | null
+          total_cash_removed?: number | null
           visit_date?: string
+          visit_type?: string | null
         }
         Relationships: [
           {
@@ -739,6 +803,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_reports_spot_id_fkey"
+            columns: ["spot_id"]
+            isOneToOne: false
+            referencedRelation: "location_spots"
             referencedColumns: ["id"]
           },
         ]

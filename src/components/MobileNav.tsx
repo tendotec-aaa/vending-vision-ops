@@ -25,7 +25,7 @@ export function MobileNav() {
   const navItems = [
     { to: '/', icon: Home, label: 'Home' },
     { to: '/locations', icon: MapPin, label: 'Locations' },
-    { to: '/visit-report', icon: ClipboardList, label: 'Report' },
+    { to: '/visit-reports', icon: ClipboardList, label: 'Reports' },
   ];
 
   const menuItems = [
