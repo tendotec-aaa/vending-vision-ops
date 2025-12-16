@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -19,6 +20,7 @@ export default function WarehouseProducts() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
@@ -380,7 +382,7 @@ export default function WarehouseProducts() {
                       ? (grossProfit / Number(product.total_sales_amount) * 100).toFixed(1) 
                       : "0.0";
                     return (
-                      <TableRow key={product.id}>
+                      <TableRow key={product.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/warehouse/products/${product.id}`)}>
                         <TableCell className="font-medium">{product.product_name}</TableCell>
                         <TableCell>
                           {product.product_type === "Other" ? product.product_type_other : product.product_type}
