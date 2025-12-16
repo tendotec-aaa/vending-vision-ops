@@ -570,6 +570,7 @@ export default function Locations() {
                               machineSlots={machineSlots || []}
                               toys={toys || []}
                               companyId={profile?.company_id || ''}
+                              allSpots={locationSpots || []}
                             />
                           ))}
                         </div>

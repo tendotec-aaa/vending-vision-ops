@@ -78,6 +78,7 @@ export default function NewVisitReport() {
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedSpot, setSelectedSpot] = useState('');
   const [visitType, setVisitType] = useState('routine');
+  const [visitDate, setVisitDate] = useState(new Date().toISOString().split('T')[0]);
   const [timeIn] = useState(new Date().toISOString());
   const [accessNotes, setAccessNotes] = useState('');
   const [coinBoxNotes, setCoinBoxNotes] = useState('');
@@ -236,6 +237,25 @@ export default function NewVisitReport() {
     });
     return { totalCapacity, currentStock, percentage: totalCapacity > 0 ? (currentStock / totalCapacity) * 100 : 0 };
   }, [machineAudits]);
+
+  // Auto-set visit date and type when spot has no records
+  useEffect(() => {
+    if (!selectedSpot) return;
+    
+    const spot = locationSpots?.find(s => s.id === selectedSpot);
+    const location = locations?.find(l => l.id === selectedLocation);
+    
+    // If spot has never been visited
+    if (!spot?.spot_last_visit_report) {
+      // Set visit type to installation
+      setVisitType('installation');
+      
+      // Set visit date to location start date if available
+      if (location?.start_date) {
+        setVisitDate(location.start_date);
+      }
+    }
+  }, [selectedSpot, locationSpots, locations, selectedLocation]);
 
   // Load machines when spot is selected
   useEffect(() => {
@@ -413,7 +433,7 @@ export default function NewVisitReport() {
           spot_id: selectedSpot,
           employee_id: user!.id,
           visit_type: visitType,
-          time_in: timeIn,
+          time_in: new Date(visitDate).toISOString(),
           time_out: timeOut,
           access_notes: accessNotes || null,
           coin_box_notes: coinBoxNotes || null,
@@ -550,7 +570,7 @@ export default function NewVisitReport() {
                 </p>
                 <p className="text-sm text-muted-foreground">{profile?.email}</p>
                 <p className="text-xs text-muted-foreground">
-                  Started: {format(new Date(timeIn), 'PPp')}
+                  Started: {format(new Date(), 'PPp')}
                 </p>
               </div>
             </div>
@@ -701,9 +721,14 @@ export default function NewVisitReport() {
             <CardDescription>Record visit information</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-3 bg-muted rounded-lg">
-              <div className="text-sm text-muted-foreground">Time In (Auto-recorded)</div>
-              <div className="font-medium">{format(new Date(timeIn), 'PPp')}</div>
+            <div className="space-y-2">
+              <Label htmlFor="visitDate">Visit Date *</Label>
+              <Input
+                id="visitDate"
+                type="date"
+                value={visitDate}
+                onChange={(e) => setVisitDate(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">

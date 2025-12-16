@@ -24,16 +24,30 @@ interface Setup {
   name: string;
 }
 
+interface Spot {
+  id: string;
+  setup_id: string | null;
+}
+
 interface AssignSetupDialogProps {
   spotId: string;
   currentSetupId: string | null;
   setups: Setup[];
+  allSpots: Spot[];
 }
 
-export function AssignSetupDialog({ spotId, currentSetupId, setups }: AssignSetupDialogProps) {
+export function AssignSetupDialog({ spotId, currentSetupId, setups, allSpots }: AssignSetupDialogProps) {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedSetupId, setSelectedSetupId] = useState(currentSetupId || '');
+
+  // Filter out setups that are already assigned to other spots
+  const availableSetups = setups.filter(setup => {
+    // Include the current setup (if any) for this spot
+    if (setup.id === currentSetupId) return true;
+    // Exclude setups assigned to other spots
+    return !allSpots.some(spot => spot.id !== spotId && spot.setup_id === setup.id);
+  });
 
   const assignSetupMutation = useMutation({
     mutationFn: async (setupId: string | null) => {
@@ -78,7 +92,7 @@ export function AssignSetupDialog({ spotId, currentSetupId, setups }: AssignSetu
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">No Setup</SelectItem>
-              {setups.map((setup) => (
+              {availableSetups.map((setup) => (
                 <SelectItem key={setup.id} value={setup.id}>
                   {setup.name}
                 </SelectItem>
