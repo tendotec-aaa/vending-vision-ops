@@ -743,6 +743,77 @@ export type Database = {
         }
         Relationships: []
       }
+      toy_movements: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          machine_id: string | null
+          movement_type: string
+          notes: string | null
+          product_id: string | null
+          quantity: number
+          slot_number: number | null
+          spot_id: string | null
+          visit_report_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          machine_id?: string | null
+          movement_type: string
+          notes?: string | null
+          product_id?: string | null
+          quantity?: number
+          slot_number?: number | null
+          spot_id?: string | null
+          visit_report_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          machine_id?: string | null
+          movement_type?: string
+          notes?: string | null
+          product_id?: string | null
+          quantity?: number
+          slot_number?: number | null
+          spot_id?: string | null
+          visit_report_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "toy_movements_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "toy_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "toy_movements_spot_id_fkey"
+            columns: ["spot_id"]
+            isOneToOne: false
+            referencedRelation: "location_spots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "toy_movements_visit_report_id_fkey"
+            columns: ["visit_report_id"]
+            isOneToOne: false
+            referencedRelation: "visit_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       toys: {
         Row: {
           cogs: number
@@ -906,6 +977,8 @@ export type Database = {
           location_id: string
           observation_text: string | null
           photo_url: string | null
+          rent_calculated: number | null
+          slot_performance_snapshot: Json | null
           spot_id: string | null
           time_in: string | null
           time_out: string | null
@@ -928,6 +1001,8 @@ export type Database = {
           location_id: string
           observation_text?: string | null
           photo_url?: string | null
+          rent_calculated?: number | null
+          slot_performance_snapshot?: Json | null
           spot_id?: string | null
           time_in?: string | null
           time_out?: string | null
@@ -950,6 +1025,8 @@ export type Database = {
           location_id?: string
           observation_text?: string | null
           photo_url?: string | null
+          rent_calculated?: number | null
+          slot_performance_snapshot?: Json | null
           spot_id?: string | null
           time_in?: string | null
           time_out?: string | null

@@ -425,7 +425,41 @@ export default function NewVisitReport() {
 
       const timeOut = new Date().toISOString();
 
-      // Create visit report
+      // Build the slot_performance_snapshot JSONB array
+      const slotPerformanceSnapshot: any[] = [];
+      machineAudits.forEach(machine => {
+        machine.slots.forEach(slot => {
+          const existingSlot = machineSlots?.find(
+            ms => ms.machine_id === machine.machine_id && ms.slot_number === slot.slot_number
+          );
+          
+          if (slot.toy_id || slot.replacement_toy_id) {
+            slotPerformanceSnapshot.push({
+              slot_id: existingSlot?.id || null,
+              machine_id: machine.machine_id,
+              slot_number: slot.slot_number,
+              product_id: slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id,
+              toy_capacity: slot.toy_capacity,
+              last_stock: slot.last_stock,
+              current_stock: slot.calculated_stock,
+              units_sold: slot.units_sold,
+              units_refilled: slot.units_refilled,
+              units_removed: slot.units_removed,
+              audited_count: slot.audited_count,
+              discrepancy: slot.discrepancy,
+              has_issue: slot.has_issue,
+              issue_description: slot.has_issue ? slot.issue_description : null,
+              issue_severity: slot.has_issue ? slot.issue_severity : null,
+              jam_type: slot.jam_type,
+              is_replacing_toy: slot.is_replacing_toy,
+              replacement_product_id: slot.is_replacing_toy ? slot.replacement_toy_id : null,
+              removed_for_replacement: slot.removed_for_replacement,
+            });
+          }
+        });
+      });
+
+      // Create visit report with JSONB snapshot (triggers handle inventory updates)
       const { data: report, error: reportError } = await supabase
         .from('visit_reports')
         .insert({
@@ -444,52 +478,24 @@ export default function NewVisitReport() {
           general_notes: generalNotes || null,
           total_cash_removed: totalCashRecollected,
           is_signed: isSigned,
+          slot_performance_snapshot: slotPerformanceSnapshot.length > 0 ? slotPerformanceSnapshot : null,
         })
         .select()
         .single();
 
       if (reportError) throw reportError;
 
-      // Insert stock records and update toy slots
+      // Insert stock records for backward compatibility (trigger also handles inventory)
       const stockRecords: any[] = [];
-      const slotUpdates: { id: string; product_id: string | null; toy_capacity: number }[] = [];
 
       machineAudits.forEach(machine => {
         machine.slots.forEach(slot => {
-          // For installation, update the machine_toy_slots
-          if (visitType === 'installation' && slot.toy_id) {
-            const existingSlot = machineSlots?.find(
-              ms => ms.machine_id === machine.machine_id && ms.slot_number === slot.slot_number
-            );
-            if (existingSlot) {
-              slotUpdates.push({
-                id: existingSlot.id,
-                product_id: slot.toy_id,
-                toy_capacity: slot.toy_capacity,
-              });
-            }
-          }
-
-          // Handle toy replacement
-          if (slot.is_replacing_toy && slot.replacement_toy_id) {
-            const existingSlot = machineSlots?.find(
-              ms => ms.machine_id === machine.machine_id && ms.slot_number === slot.slot_number
-            );
-            if (existingSlot) {
-              slotUpdates.push({
-                id: existingSlot.id,
-                product_id: slot.replacement_toy_id,
-                toy_capacity: slot.toy_capacity,
-              });
-            }
-          }
-
           if (slot.toy_id || slot.replacement_toy_id) {
             const productId = slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id;
             stockRecords.push({
               visit_report_id: report.id,
               product_id: productId,
-              toy_id: productId, // Reusing product_id since toys table FK is dropped
+              toy_id: productId,
               machine_id: machine.machine_id,
               slot_number: slot.slot_number,
               last_stock: slot.last_stock,
@@ -511,14 +517,6 @@ export default function NewVisitReport() {
         });
       });
 
-      // Update machine toy slots
-      for (const update of slotUpdates) {
-        await supabase
-          .from('machine_toy_slots')
-          .update({ product_id: update.product_id, toy_capacity: update.toy_capacity })
-          .eq('id', update.id);
-      }
-
       if (stockRecords.length > 0) {
         const { error: stockError } = await supabase
           .from('visit_report_stock')
@@ -529,6 +527,8 @@ export default function NewVisitReport() {
       queryClient.invalidateQueries({ queryKey: ['visit_reports'] });
       queryClient.invalidateQueries({ queryKey: ['location_spots'] });
       queryClient.invalidateQueries({ queryKey: ['locations'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['machine_toy_slots'] });
       toast.success('Visit report submitted successfully!');
       navigate('/visit-reports');
     } catch (error: any) {
