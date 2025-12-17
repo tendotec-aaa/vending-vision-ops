@@ -752,6 +752,7 @@ export type Database = {
           movement_type: string
           notes: string | null
           product_id: string | null
+          product_name: string | null
           quantity: number
           slot_number: number | null
           spot_id: string | null
@@ -765,6 +766,7 @@ export type Database = {
           movement_type: string
           notes?: string | null
           product_id?: string | null
+          product_name?: string | null
           quantity?: number
           slot_number?: number | null
           spot_id?: string | null
@@ -778,6 +780,7 @@ export type Database = {
           movement_type?: string
           notes?: string | null
           product_id?: string | null
+          product_name?: string | null
           quantity?: number
           slot_number?: number | null
           spot_id?: string | null
@@ -879,6 +882,7 @@ export type Database = {
           last_stock: number | null
           machine_id: string | null
           product_id: string | null
+          product_name: string | null
           removed_for_replacement: number | null
           replacement_toy_id: string | null
           slot_number: number | null
@@ -903,6 +907,7 @@ export type Database = {
           last_stock?: number | null
           machine_id?: string | null
           product_id?: string | null
+          product_name?: string | null
           removed_for_replacement?: number | null
           replacement_toy_id?: string | null
           slot_number?: number | null
@@ -927,6 +932,7 @@ export type Database = {
           last_stock?: number | null
           machine_id?: string | null
           product_id?: string | null
+          product_name?: string | null
           removed_for_replacement?: number | null
           replacement_toy_id?: string | null
           slot_number?: number | null

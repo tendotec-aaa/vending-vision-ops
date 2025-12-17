@@ -423,9 +423,7 @@ export default function NewVisitReport() {
         photoUrl = await uploadPhoto();
       }
 
-      const timeOut = new Date().toISOString();
-
-      // Build the slot_performance_snapshot JSONB array
+      // Build the slot_performance_snapshot JSONB array with product_name
       const slotPerformanceSnapshot: any[] = [];
       machineAudits.forEach(machine => {
         machine.slots.forEach(slot => {
@@ -434,11 +432,15 @@ export default function NewVisitReport() {
           );
           
           if (slot.toy_id || slot.replacement_toy_id) {
+            const productId = slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id;
+            const product = products?.find(p => p.id === productId);
+            
             slotPerformanceSnapshot.push({
               slot_id: existingSlot?.id || null,
               machine_id: machine.machine_id,
               slot_number: slot.slot_number,
-              product_id: slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id,
+              product_id: productId,
+              product_name: product?.product_name || slot.toy_name || 'Unknown',
               toy_capacity: slot.toy_capacity,
               last_stock: slot.last_stock,
               current_stock: slot.calculated_stock,
@@ -460,6 +462,7 @@ export default function NewVisitReport() {
       });
 
       // Create visit report with JSONB snapshot (triggers handle inventory updates)
+      // Note: time_out is eliminated - only time_in is used
       const { data: report, error: reportError } = await supabase
         .from('visit_reports')
         .insert({
@@ -469,7 +472,6 @@ export default function NewVisitReport() {
           employee_id: user!.id,
           visit_type: visitType,
           time_in: new Date(visitDate).toISOString(),
-          time_out: timeOut,
           access_notes: accessNotes || null,
           coin_box_notes: coinBoxNotes || null,
           photo_url: photoUrl,
@@ -492,9 +494,11 @@ export default function NewVisitReport() {
         machine.slots.forEach(slot => {
           if (slot.toy_id || slot.replacement_toy_id) {
             const productId = slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id;
+            const product = products?.find(p => p.id === productId);
             stockRecords.push({
               visit_report_id: report.id,
               product_id: productId,
+              product_name: product?.product_name || slot.toy_name || 'Unknown',
               toy_id: productId,
               machine_id: machine.machine_id,
               slot_number: slot.slot_number,

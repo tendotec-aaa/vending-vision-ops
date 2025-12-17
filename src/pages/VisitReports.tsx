@@ -70,10 +70,12 @@ interface VisitReport {
   total_cash_removed: number | null;
   is_signed: boolean | null;
   time_in: string | null;
-  time_out: string | null;
   access_notes: string | null;
   general_notes: string | null;
+  coin_box_notes: string | null;
   employee_id: string | null;
+  rent_calculated: number | null;
+  slot_performance_snapshot: any[] | null;
 }
 
 export default function VisitReports() {
@@ -284,22 +286,22 @@ export default function VisitReports() {
       'Visit Type',
       'Employee',
       'Time In',
-      'Time Out',
-      'Cash Removed',
+      'Cash Recollected',
+      'Rent Calculated',
       'Has Issues',
       'Observations',
       'Signed'
     ];
 
     const rows = filteredReports.map(report => [
-      format(new Date(report.visit_date), 'yyyy-MM-dd'),
+      report.time_in ? format(new Date(report.time_in), 'yyyy-MM-dd') : format(new Date(report.visit_date), 'yyyy-MM-dd'),
       getLocationName(report.location_id),
       getSpotName(report.spot_id),
       report.visit_type || 'routine',
       getEmployeeName(report.employee_id),
       report.time_in ? format(new Date(report.time_in), 'HH:mm') : '-',
-      report.time_out ? format(new Date(report.time_out), 'HH:mm') : '-',
       report.total_cash_removed?.toFixed(2) || '0.00',
+      (report.rent_calculated || 0).toFixed(2),
       report.is_jammed ? 'Yes' : 'No',
       report.observation_text || '-',
       report.is_signed ? 'Yes' : 'No'
@@ -559,7 +561,17 @@ export default function VisitReports() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-sm text-muted-foreground">Date</div>
-                  <div className="font-medium">{format(new Date(viewingReport.visit_date), 'PPP')}</div>
+                  <div className="font-medium">
+                    {viewingReport.time_in 
+                      ? format(new Date(viewingReport.time_in), 'PPP') 
+                      : format(new Date(viewingReport.visit_date), 'PPP')}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Time In</div>
+                  <div className="font-medium">
+                    {viewingReport.time_in ? format(new Date(viewingReport.time_in), 'h:mm a') : '-'}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">Location</div>
@@ -574,26 +586,49 @@ export default function VisitReports() {
                   <div className="font-medium capitalize">{viewingReport.visit_type || 'routine'}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">Time In</div>
-                  <div className="font-medium">
-                    {viewingReport.time_in ? format(new Date(viewingReport.time_in), 'HH:mm') : '-'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Time Out</div>
-                  <div className="font-medium">
-                    {viewingReport.time_out ? format(new Date(viewingReport.time_out), 'HH:mm') : '-'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Cash Removed</div>
-                  <div className="font-medium">${(viewingReport.total_cash_removed || 0).toFixed(2)}</div>
-                </div>
-                <div>
                   <div className="text-sm text-muted-foreground">Employee</div>
                   <div className="font-medium">{getEmployeeName(viewingReport.employee_id)}</div>
                 </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Cash Recollected</div>
+                  <div className="font-medium text-primary">${(viewingReport.total_cash_removed || 0).toFixed(2)}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Rent Calculated</div>
+                  <div className="font-medium">${(viewingReport.rent_calculated || 0).toFixed(2)}</div>
+                </div>
               </div>
+
+              {/* Slot Performance Summary */}
+              {viewingReport.slot_performance_snapshot && viewingReport.slot_performance_snapshot.length > 0 && (
+                <div>
+                  <div className="text-sm text-muted-foreground mb-2">Slot Performance</div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Slot</th>
+                          <th className="px-3 py-2 text-left">Product</th>
+                          <th className="px-3 py-2 text-center">Sold</th>
+                          <th className="px-3 py-2 text-center">Refilled</th>
+                          <th className="px-3 py-2 text-center">Stock</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {viewingReport.slot_performance_snapshot.map((slot: any, index: number) => (
+                          <tr key={index} className={slot.has_issue ? 'bg-destructive/5' : ''}>
+                            <td className="px-3 py-2">#{slot.slot_number}</td>
+                            <td className="px-3 py-2">{slot.product_name || 'Unknown'}</td>
+                            <td className="px-3 py-2 text-center">{slot.units_sold || 0}</td>
+                            <td className="px-3 py-2 text-center">{slot.units_refilled || 0}</td>
+                            <td className="px-3 py-2 text-center">{slot.current_stock || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {viewingReport.is_jammed && (
                 <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/20">
@@ -604,6 +639,13 @@ export default function VisitReports() {
                   {viewingReport.jam_status && (
                     <div className="text-sm mt-1">{viewingReport.jam_status}</div>
                   )}
+                </div>
+              )}
+
+              {viewingReport.coin_box_notes && (
+                <div>
+                  <div className="text-sm text-muted-foreground mb-1">Coin Box Notes</div>
+                  <div className="p-3 bg-muted rounded-lg text-sm">{viewingReport.coin_box_notes}</div>
                 </div>
               )}
 
