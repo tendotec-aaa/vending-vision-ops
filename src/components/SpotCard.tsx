@@ -118,10 +118,12 @@ export function SpotCard({
     ? ((Number(spot.spot_total_sales) / operationalDays) * 30)
     : null;
 
-  // Calculate profitability (sales - rent)
-  const totalRent = spot.spot_total_rent || 0;
+  // Calculate total rent: (monthly rent / 30) × days active
+  const totalRent = rentPerSpot && operationalDays && operationalDays > 0
+    ? (rentPerSpot / 30) * operationalDays
+    : 0;
   const totalSales = spot.spot_total_sales || 0;
-  const profit = Number(totalSales) - Number(totalRent);
+  const profit = Number(totalSales) - totalRent;
   const isProfitable = profit > 0;
 
   const updatePlaceNameMutation = useMutation({
