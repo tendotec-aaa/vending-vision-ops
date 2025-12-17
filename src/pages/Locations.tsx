@@ -134,7 +134,7 @@ export default function Locations() {
     queryFn: async () => {
       const { data } = await supabase
         .from('machine_toy_slots')
-        .select('*, products(*)')
+        .select('*, products(id, product_name)')
         .eq('company_id', profile?.company_id);
       return data || [];
     },
@@ -471,6 +471,12 @@ export default function Locations() {
                                 <Hash className="h-3 w-3" />
                                 {spots.length} spot{spots.length !== 1 ? 's' : ''}
                               </span>
+                              {location.start_date && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  Started: {format(new Date(location.start_date), 'MMM d, yyyy')}
+                                </span>
+                              )}
                               {(location.location_total_sales ?? 0) > 0 && (
                                 <span className="flex items-center gap-1 text-green-600">
                                   <TrendingUp className="h-3 w-3" />
@@ -572,6 +578,7 @@ export default function Locations() {
                               products={products || []}
                               companyId={profile?.company_id || ''}
                               allSpots={locationSpots || []}
+                              locationStartDate={location.start_date}
                             />
                           ))}
                         </div>

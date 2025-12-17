@@ -4,16 +4,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { 
   Collapsible, 
   CollapsibleContent, 
   CollapsibleTrigger 
 } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { ChevronDown, Cpu, Edit2, Check, X, Hash, Package, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
+import { ChevronDown, Cpu, Edit2, Check, X, Hash, Package, DollarSign, Calendar, AlertTriangle, TrendingUp, Clock } from 'lucide-react';
 import { AssignSetupDialog } from './AssignSetupDialog';
-import { MachineSlotManager } from './MachineSlotManager';
-import { format } from 'date-fns';
+import { ReadOnlySlotDisplay } from './ReadOnlySlotDisplay';
+import { format, differenceInDays } from 'date-fns';
 
 interface Setup {
   id: string;
@@ -39,6 +40,12 @@ interface MachineSlot {
   slot_number: number;
   toy_id: string | null;
   product_id: string | null;
+  toy_capacity?: number | null;
+  toy_current_stock?: number | null;
+  products?: {
+    id: string;
+    product_name: string;
+  } | null;
 }
 
 interface Product {
@@ -70,6 +77,7 @@ interface SpotCardProps {
   products: Product[];
   companyId: string;
   allSpots: Spot[];
+  locationStartDate?: string | null;
 }
 
 export function SpotCard({ 
@@ -81,7 +89,8 @@ export function SpotCard({
   machineSlots, 
   products,
   companyId,
-  allSpots
+  allSpots,
+  locationStartDate
 }: SpotCardProps) {
   const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -91,6 +100,29 @@ export function SpotCard({
 
   const assignedSetup = setups.find(s => s.id === spot.setup_id);
   const machines = setupMachines.filter(sm => sm.setup_id === spot.setup_id);
+
+  // Calculate operational days
+  const startDate = spot.spot_start_date || locationStartDate;
+  const operationalDays = startDate ? differenceInDays(new Date(), new Date(startDate)) : null;
+
+  // Calculate total capacity and current stock across all machines
+  const allSlotsForSpot = machines.flatMap(sm => 
+    machineSlots.filter(ms => ms.machine_id === sm.machine_id)
+  );
+  const totalCapacity = allSlotsForSpot.reduce((sum, slot) => sum + (slot.toy_capacity || 20), 0);
+  const currentStock = allSlotsForSpot.reduce((sum, slot) => sum + (slot.toy_current_stock || 0), 0);
+  const stockPercentage = totalCapacity > 0 ? (currentStock / totalCapacity) * 100 : 0;
+
+  // Calculate 30-day average (rough estimate based on total sales and operational days)
+  const thirtyDayAverage = operationalDays && operationalDays > 0 && (spot.spot_total_sales ?? 0) > 0
+    ? ((Number(spot.spot_total_sales) / operationalDays) * 30)
+    : null;
+
+  // Calculate profitability (sales - rent)
+  const totalRent = spot.spot_total_rent || 0;
+  const totalSales = spot.spot_total_sales || 0;
+  const profit = Number(totalSales) - Number(totalRent);
+  const isProfitable = profit > 0;
 
   const updatePlaceNameMutation = useMutation({
     mutationFn: async (newName: string) => {
@@ -152,6 +184,17 @@ export function SpotCard({
                     {spot.spot_open_maintenance_tickets}
                   </Badge>
                 )}
+                {isProfitable ? (
+                  <Badge variant="default" className="text-xs bg-green-600">
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    Profitable
+                  </Badge>
+                ) : totalSales > 0 || totalRent > 0 ? (
+                  <Badge variant="destructive" className="text-xs">
+                    <TrendingUp className="h-3 w-3 mr-1 rotate-180" />
+                    Loss
+                  </Badge>
+                ) : null}
                 {assignedSetup ? (
                   <Badge variant="secondary" className="text-xs">
                     {assignedSetup.name}
@@ -164,27 +207,56 @@ export function SpotCard({
                 <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
               </div>
             </div>
-            {/* Stats Row */}
-            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-              {(spot.spot_total_sales ?? 0) > 0 && (
+
+            {/* Stats Row - Enhanced */}
+            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
+              {operationalDays !== null && (
                 <span className="flex items-center gap-1">
-                  <DollarSign className="h-3 w-3 text-green-500" />
+                  <Clock className="h-3 w-3" />
+                  {operationalDays} days active
+                </span>
+              )}
+              {(spot.spot_total_sales ?? 0) > 0 && (
+                <span className="flex items-center gap-1 text-green-600">
+                  <DollarSign className="h-3 w-3" />
                   ${Number(spot.spot_total_sales || 0).toFixed(2)} sales
                 </span>
               )}
               {rentPerSpot !== null && (
                 <span className="flex items-center gap-1">
                   <DollarSign className="h-3 w-3" />
-                  ${rentPerSpot.toFixed(2)}/mo rent
+                  ${rentPerSpot.toFixed(2)}/mo
+                </span>
+              )}
+              {thirtyDayAverage !== null && (
+                <span className="flex items-center gap-1 text-blue-600">
+                  <TrendingUp className="h-3 w-3" />
+                  ~${thirtyDayAverage.toFixed(2)}/30d avg
                 </span>
               )}
               {spot.spot_last_visit_report && (
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
-                  Last visit: {format(new Date(spot.spot_last_visit_report), 'MMM d')}
+                  Last: {format(new Date(spot.spot_last_visit_report), 'MMM d')}
                 </span>
               )}
             </div>
+
+            {/* Stock Capacity Bar */}
+            {totalCapacity > 0 && assignedSetup && (
+              <div className="mt-2 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Stock: {currentStock}/{totalCapacity}</span>
+                  <span className={`font-medium ${stockPercentage < 25 ? 'text-red-600' : stockPercentage < 50 ? 'text-yellow-600' : 'text-green-600'}`}>
+                    {stockPercentage.toFixed(0)}%
+                  </span>
+                </div>
+                <Progress 
+                  value={stockPercentage} 
+                  className="h-1.5"
+                />
+              </div>
+            )}
           </div>
         </CollapsibleTrigger>
 
@@ -237,6 +309,26 @@ export function SpotCard({
               )}
             </div>
 
+            {/* Profitability Summary */}
+            {(totalSales > 0 || totalRent > 0) && (
+              <div className="grid grid-cols-3 gap-2 text-xs bg-background rounded-md p-2 border">
+                <div className="text-center">
+                  <p className="text-muted-foreground">Total Sales</p>
+                  <p className="font-semibold text-green-600">${Number(totalSales).toFixed(2)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-muted-foreground">Total Rent</p>
+                  <p className="font-semibold text-red-600">${Number(totalRent).toFixed(2)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-muted-foreground">Net Profit</p>
+                  <p className={`font-semibold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {profit >= 0 ? '+' : ''}${profit.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Setup Assignment */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Setup:</span>
@@ -264,6 +356,9 @@ export function SpotCard({
                       if (!machine) return null;
                       const slots = getSlotsForMachine(machine.id);
                       const isMachineExpanded = expandedMachines.has(machine.id);
+                      const filledSlots = slots.filter(s => s.product_id).length;
+                      const machineCapacity = slots.reduce((sum, s) => sum + (s.toy_capacity || 20), 0);
+                      const machineStock = slots.reduce((sum, s) => sum + (s.toy_current_stock || 0), 0);
 
                       return (
                         <Collapsible
@@ -279,8 +374,11 @@ export function SpotCard({
                                     <Cpu className="h-3 w-3 text-primary" />
                                     <span className="text-xs font-medium">{machine.serial_number}</span>
                                     <Badge variant="secondary" className="text-xs">
-                                      {slots.filter(s => s.product_id).length}/{machine.slots_per_machine || 8} slots
+                                      {filledSlots}/{machine.slots_per_machine || 8} slots
                                     </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      ({machineStock}/{machineCapacity} units)
+                                    </span>
                                   </div>
                                   <ChevronDown className={`h-3 w-3 transition-transform ${isMachineExpanded ? 'rotate-180' : ''}`} />
                                 </div>
@@ -291,13 +389,10 @@ export function SpotCard({
                               <div className="px-2 pb-2 border-t border-border pt-2">
                                 <h6 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
                                   <Package className="h-3 w-3" />
-                                  Toy Slots
+                                  Toy Slots (View Only - Edit in Visit Reports)
                                 </h6>
-                                <MachineSlotManager
-                                  machineId={machine.id}
-                                  companyId={companyId}
+                                <ReadOnlySlotDisplay
                                   slots={slots}
-                                  products={products}
                                   slotCount={machine.slots_per_machine || 8}
                                 />
                               </div>
