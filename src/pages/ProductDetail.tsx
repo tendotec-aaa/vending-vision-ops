@@ -136,7 +136,7 @@ export default function ProductDetail() {
         .from("toy_movements")
         .select(`
           *,
-          visit_reports(time_in, location_id, locations(name)),
+          visit_reports(time_in, location_id, locations!visit_reports_location_id_fkey(name)),
           location_spots(spot_number, place_name)
         `)
         .eq("product_id", id)
