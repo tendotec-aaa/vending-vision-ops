@@ -498,7 +498,6 @@ export default function NewVisitReport() {
               units_removed: slot.units_removed,
               audited_count: slot.audited_count,
               discrepancy: slot.discrepancy,
-              variance: slot.calculated_stock - slot.last_stock,
               has_issue: slot.has_issue,
               issue_description: slot.has_issue ? slot.issue_description : null,
               issue_severity: slot.has_issue ? slot.issue_severity : null,
