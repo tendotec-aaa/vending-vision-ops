@@ -128,19 +128,20 @@ export default function ProductDetail() {
     }
   }, [product]);
 
-  // Fetch visit report stock history for this product (sales/inventory movements)
-  const { data: stockHistory } = useQuery({
-    queryKey: ["product_stock_history", id],
+  // Fetch toy movements history for this product from the ledger
+  const { data: toyMovements } = useQuery({
+    queryKey: ["toy_movements", id],
     queryFn: async () => {
       const { data } = await supabase
-        .from("visit_report_stock")
+        .from("toy_movements")
         .select(`
           *,
-          visit_reports(visit_date, location_id, locations(name))
+          visit_reports(time_in, location_id, locations(name)),
+          location_spots(spot_number, place_name)
         `)
         .eq("product_id", id)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(100);
       return data || [];
     },
     enabled: !!id,
@@ -332,61 +333,69 @@ export default function ProductDetail() {
                       <TableRow>
                         <TableHead>Date</TableHead>
                         <TableHead>Location</TableHead>
-                        <TableHead className="text-right">Sold</TableHead>
-                        <TableHead className="text-right">Refilled</TableHead>
-                        <TableHead className="text-right">Removed</TableHead>
-                        <TableHead className="text-right">Stock</TableHead>
-                        <TableHead className="text-right">Discrepancy</TableHead>
+                        <TableHead>Spot</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead className="text-right">Quantity</TableHead>
+                        <TableHead>Notes</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {stockHistory?.map((record: any) => (
-                        <TableRow key={record.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                              {record.visit_reports?.visit_date 
-                                ? format(new Date(record.visit_reports.visit_date), "MMM d, yyyy")
-                                : "-"}
-                            </div>
-                          </TableCell>
-                          <TableCell>{record.visit_reports?.locations?.name || "-"}</TableCell>
-                          <TableCell className="text-right">
-                            {record.units_sold > 0 && (
-                              <span className="flex items-center justify-end gap-1 text-red-600">
-                                <ArrowDownCircle className="h-3 w-3" />
-                                {record.units_sold}
+                      {toyMovements?.map((record: any) => {
+                        const getMovementStyle = (type: string) => {
+                          switch (type) {
+                            case 'sale': return { icon: ArrowDownCircle, color: 'text-red-600', label: 'Sale' };
+                            case 'refill': return { icon: ArrowUpCircle, color: 'text-green-600', label: 'Refill' };
+                            case 'removal': return { icon: ArrowDownCircle, color: 'text-orange-600', label: 'Removal' };
+                            case 'audit_adjustment': return { icon: AlertTriangle, color: record.quantity > 0 ? 'text-green-600' : 'text-red-600', label: record.quantity > 0 ? 'Surplus' : 'Shortage' };
+                            case 'jam_with_coins': return { icon: AlertTriangle, color: 'text-yellow-600', label: 'Jam (Coins)' };
+                            case 'replacement': return { icon: Package2, color: 'text-blue-600', label: 'Replacement' };
+                            default: return { icon: Package2, color: 'text-muted-foreground', label: type };
+                          }
+                        };
+                        const style = getMovementStyle(record.movement_type);
+                        const IconComponent = style.icon;
+                        
+                        return (
+                          <TableRow key={record.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                {record.visit_reports?.time_in 
+                                  ? format(new Date(record.visit_reports.time_in), "MMM d, yyyy")
+                                  : record.created_at 
+                                    ? format(new Date(record.created_at), "MMM d, yyyy")
+                                    : "-"}
+                              </div>
+                            </TableCell>
+                            <TableCell>{record.visit_reports?.locations?.name || "-"}</TableCell>
+                            <TableCell>
+                              {record.location_spots ? (
+                                <span className="text-sm">
+                                  #{record.location_spots.spot_number}
+                                  {record.location_spots.place_name && ` (${record.location_spots.place_name})`}
+                                </span>
+                              ) : record.slot_number ? (
+                                <span className="text-sm">Slot {record.slot_number}</span>
+                              ) : "-"}
+                            </TableCell>
+                            <TableCell>
+                              <span className={`flex items-center gap-1 ${style.color}`}>
+                                <IconComponent className="h-3 w-3" />
+                                {style.label}
                               </span>
-                            )}
-                            {!record.units_sold && "-"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {record.units_refilled > 0 && (
-                              <span className="flex items-center justify-end gap-1 text-green-600">
-                                <ArrowUpCircle className="h-3 w-3" />
-                                {record.units_refilled}
-                              </span>
-                            )}
-                            {!record.units_refilled && "-"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {record.units_removed > 0 && (
-                              <span className="flex items-center justify-end gap-1 text-orange-600">
-                                <ArrowDownCircle className="h-3 w-3" />
-                                {record.units_removed}
-                              </span>
-                            )}
-                            {!record.units_removed && "-"}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">{record.current_stock}</TableCell>
-                          <TableCell className={`text-right ${record.discrepancy > 0 ? "text-green-600" : record.discrepancy < 0 ? "text-red-600" : ""}`}>
-                            {record.discrepancy !== 0 ? (record.discrepancy > 0 ? "+" : "") + record.discrepancy : "-"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {!stockHistory?.length && (
+                            </TableCell>
+                            <TableCell className={`text-right font-medium ${style.color}`}>
+                              {record.quantity > 0 ? '+' : ''}{record.quantity}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
+                              {record.notes || "-"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {!toyMovements?.length && (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                             No inventory movements recorded yet.
                           </TableCell>
                         </TableRow>
