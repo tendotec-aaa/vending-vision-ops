@@ -811,7 +811,7 @@ export type Database = {
           removed_for_replacement: number | null
           replacement_toy_id: string | null
           slot_number: number | null
-          toy_id: string
+          toy_id: string | null
           units_refilled: number | null
           units_removed: number | null
           units_sold: number | null
@@ -835,7 +835,7 @@ export type Database = {
           removed_for_replacement?: number | null
           replacement_toy_id?: string | null
           slot_number?: number | null
-          toy_id: string
+          toy_id?: string | null
           units_refilled?: number | null
           units_removed?: number | null
           units_sold?: number | null
@@ -859,7 +859,7 @@ export type Database = {
           removed_for_replacement?: number | null
           replacement_toy_id?: string | null
           slot_number?: number | null
-          toy_id?: string
+          toy_id?: string | null
           units_refilled?: number | null
           units_removed?: number | null
           units_sold?: number | null
@@ -879,20 +879,6 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visit_report_stock_replacement_toy_id_fkey"
-            columns: ["replacement_toy_id"]
-            isOneToOne: false
-            referencedRelation: "toys"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visit_report_stock_toy_id_fkey"
-            columns: ["toy_id"]
-            isOneToOne: false
-            referencedRelation: "toys"
             referencedColumns: ["id"]
           },
           {

@@ -485,10 +485,11 @@ export default function NewVisitReport() {
           }
 
           if (slot.toy_id || slot.replacement_toy_id) {
+            const productId = slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id;
             stockRecords.push({
               visit_report_id: report.id,
-              product_id: slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id,
-              toy_id: slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id,
+              product_id: productId,
+              toy_id: productId, // Reusing product_id since toys table FK is dropped
               machine_id: machine.machine_id,
               slot_number: slot.slot_number,
               last_stock: slot.last_stock,
@@ -503,7 +504,7 @@ export default function NewVisitReport() {
               issue_severity: slot.has_issue ? slot.issue_severity : null,
               jam_type: slot.jam_type,
               is_replacing_toy: slot.is_replacing_toy,
-              replacement_toy_id: slot.replacement_toy_id,
+              replacement_toy_id: slot.is_replacing_toy ? slot.replacement_toy_id : null,
               removed_for_replacement: slot.removed_for_replacement,
             });
           }
