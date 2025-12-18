@@ -612,6 +612,7 @@ export default function VisitReports() {
                           <th className="px-3 py-2 text-center">Sold</th>
                           <th className="px-3 py-2 text-center">Refilled</th>
                           <th className="px-3 py-2 text-center">Stock</th>
+                          <th className="px-3 py-2 text-left">Replaced</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -622,6 +623,13 @@ export default function VisitReports() {
                             <td className="px-3 py-2 text-center">{slot.units_sold || 0}</td>
                             <td className="px-3 py-2 text-center">{slot.units_refilled || 0}</td>
                             <td className="px-3 py-2 text-center">{slot.current_stock || 0}</td>
+                            <td className="px-3 py-2">
+                              {slot.is_replacing_toy ? (
+                                <Badge variant="secondary" className="text-xs">
+                                  {slot.original_product_name || 'Previous'} → {slot.product_name}
+                                </Badge>
+                              ) : '-'}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

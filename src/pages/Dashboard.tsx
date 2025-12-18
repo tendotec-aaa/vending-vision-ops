@@ -106,7 +106,7 @@ export default function Dashboard() {
             </Card>
           </a>
 
-          <a href="/visit-report">
+          <a href="/visit-reports">
             <Card className="cursor-pointer hover:shadow-lg transition-shadow">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -159,7 +159,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="grid gap-3">
             <Button variant="outline" className="justify-start" asChild>
-              <a href="/visit-report">
+              <a href="/visit-report/new">
                 <ClipboardList className="mr-2 h-4 w-4" />
                 Submit Visit Report
               </a>
