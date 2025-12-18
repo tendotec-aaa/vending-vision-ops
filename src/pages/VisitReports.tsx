@@ -700,8 +700,8 @@ export default function VisitReports() {
                                     </div>
                                   </div>
                                   <div className="p-2 bg-background rounded">
-                                    <div className="text-muted-foreground">Capacity</div>
-                                    <div className="font-semibold">{slot.original_toy_capacity || 0}</div>
+                                    <div className="text-muted-foreground">Current Stock</div>
+                                    <div className="font-semibold">0</div>
                                   </div>
                                 </div>
                               </div>
@@ -713,36 +713,48 @@ export default function VisitReports() {
                                   <span className="text-sm font-semibold text-green-700 dark:text-green-400">New Toy Installed</span>
                                 </div>
                                 <div className="text-sm font-medium mb-2">{slot.product_name || 'Unknown'}</div>
-                                <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-                                  <div className="p-2 bg-background rounded">
-                                    <div className="text-muted-foreground">Refilled</div>
-                                    <div className="font-semibold text-green-600">{slot.units_refilled || 0}</div>
-                                  </div>
-                                  <div className="p-2 bg-background rounded">
-                                    <div className="text-muted-foreground">Current Stock</div>
-                                    <div className="font-semibold">{slot.current_stock || 0}</div>
-                                  </div>
-                                  <div className="p-2 bg-background rounded">
-                                    <div className="text-muted-foreground">Capacity</div>
-                                    <div className="font-semibold">{slot.toy_capacity || 0}</div>
-                                  </div>
-                                </div>
-                                {/* Stock vs Capacity Bar */}
-                                <div className="space-y-1">
-                                  <div className="flex justify-between text-xs text-muted-foreground">
-                                    <span>Stock Level</span>
-                                    <span>{slot.current_stock || 0} / {slot.toy_capacity || 0}</span>
-                                  </div>
-                                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                    <div 
-                                      className={cn(
-                                        "h-full transition-all",
-                                        stockPercentage > 50 ? "bg-green-500" : stockPercentage > 25 ? "bg-amber-500" : "bg-red-500"
-                                      )}
-                                      style={{ width: `${stockPercentage}%` }}
-                                    />
-                                  </div>
-                                </div>
+                                {(() => {
+                                  // For replacements, current_stock should equal units_refilled
+                                  const newToyCurrentStock = slot.units_refilled || 0;
+                                  const newToyCapacity = slot.toy_capacity || 0;
+                                  const newStockPercentage = newToyCapacity > 0 
+                                    ? Math.min(100, Math.round((newToyCurrentStock / newToyCapacity) * 100))
+                                    : 0;
+                                  return (
+                                    <>
+                                      <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+                                        <div className="p-2 bg-background rounded">
+                                          <div className="text-muted-foreground">Refilled</div>
+                                          <div className="font-semibold text-green-600">{slot.units_refilled || 0}</div>
+                                        </div>
+                                        <div className="p-2 bg-background rounded">
+                                          <div className="text-muted-foreground">Current Stock</div>
+                                          <div className="font-semibold">{newToyCurrentStock}</div>
+                                        </div>
+                                        <div className="p-2 bg-background rounded">
+                                          <div className="text-muted-foreground">Capacity</div>
+                                          <div className="font-semibold">{newToyCapacity}</div>
+                                        </div>
+                                      </div>
+                                      {/* Stock vs Capacity Bar */}
+                                      <div className="space-y-1">
+                                        <div className="flex justify-between text-xs text-muted-foreground">
+                                          <span>Stock Level</span>
+                                          <span>{newToyCurrentStock} / {newToyCapacity}</span>
+                                        </div>
+                                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                          <div 
+                                            className={cn(
+                                              "h-full transition-all",
+                                              newStockPercentage > 50 ? "bg-green-500" : newStockPercentage > 25 ? "bg-amber-500" : "bg-red-500"
+                                            )}
+                                            style={{ width: `${newStockPercentage}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
                           ) : (
