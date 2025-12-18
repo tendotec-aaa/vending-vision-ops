@@ -540,6 +540,15 @@ export default function NewVisitReport() {
             const product = products?.find(p => p.id === productId);
             const originalProduct = products?.find(p => p.id === slot.toy_id);
             
+            // For replacement: new toy's current_stock = units_refilled (what was put in)
+            // For non-replacement: current_stock = calculated_stock
+            const currentStockValue = slot.is_replacing_toy ? slot.units_refilled : slot.calculated_stock;
+            
+            // For replacement: calculate surplus/shortage for old toy
+            const oldToySurplusShortage = slot.is_replacing_toy 
+              ? slot.removed_for_replacement - (slot.last_stock - slot.units_sold) 
+              : 0;
+            
             slotPerformanceSnapshot.push({
               slot_id: existingSlot?.id || null,
               machine_id: machine.machine_id,
@@ -551,12 +560,13 @@ export default function NewVisitReport() {
               toy_capacity: slot.toy_capacity,
               original_toy_capacity: slot.original_toy_capacity,
               last_stock: slot.last_stock,
-              current_stock: slot.calculated_stock,
+              current_stock: currentStockValue,
               units_sold: slot.units_sold,
               units_refilled: slot.units_refilled,
               units_removed: slot.units_removed,
               audited_count: slot.audited_count,
               discrepancy: slot.discrepancy,
+              surplus_shortage: oldToySurplusShortage,
               has_issue: slot.has_issue,
               issue_description: slot.has_issue ? slot.issue_description : null,
               issue_severity: slot.has_issue ? slot.issue_severity : null,
