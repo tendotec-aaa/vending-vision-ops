@@ -56,6 +56,7 @@ interface ToySlotAudit {
   issue_description: string;
   issue_severity: string;
   toy_capacity: number;
+  original_toy_capacity: number;
   jam_type: string | null;
   is_replacing_toy: boolean;
   replacement_toy_id: string | null;
@@ -379,6 +380,7 @@ export default function NewVisitReport() {
         );
         const lastStock = lastStockRecord?.current_stock ?? 0;
         
+        const existingCapacity = (existingSlot as any)?.toy_capacity ?? 20;
         return {
           toy_id: existingSlot?.product_id || '',
           toy_name: product?.product_name || '',
@@ -393,7 +395,8 @@ export default function NewVisitReport() {
           has_issue: false,
           issue_description: '',
           issue_severity: 'low',
-          toy_capacity: (existingSlot as any)?.toy_capacity ?? 20,
+          toy_capacity: existingCapacity,
+          original_toy_capacity: existingCapacity,
           jam_type: null,
           is_replacing_toy: false,
           replacement_toy_id: null,
@@ -546,6 +549,7 @@ export default function NewVisitReport() {
               original_product_id: slot.is_replacing_toy ? slot.toy_id : null,
               original_product_name: slot.is_replacing_toy ? (originalProduct?.product_name || slot.toy_name) : null,
               toy_capacity: slot.toy_capacity,
+              original_toy_capacity: slot.original_toy_capacity,
               last_stock: slot.last_stock,
               current_stock: slot.calculated_stock,
               units_sold: slot.units_sold,
