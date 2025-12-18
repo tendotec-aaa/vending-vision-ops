@@ -52,7 +52,8 @@ import {
   CalendarIcon,
   FileText,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  RefreshCw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -552,148 +553,261 @@ export default function VisitReports() {
 
       {/* View Report Dialog */}
       <Dialog open={!!viewingReport} onOpenChange={(open) => !open && setViewingReport(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Visit Report Details</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Visit Report Details
+            </DialogTitle>
           </DialogHeader>
           {viewingReport && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-6">
+              {/* Header Info Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg">
                 <div>
-                  <div className="text-sm text-muted-foreground">Date</div>
-                  <div className="font-medium">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Date</div>
+                  <div className="font-semibold">
                     {viewingReport.time_in 
                       ? format(new Date(viewingReport.time_in), 'PPP') 
                       : format(new Date(viewingReport.visit_date), 'PPP')}
                   </div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">Time In</div>
-                  <div className="font-medium">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Time In</div>
+                  <div className="font-semibold">
                     {viewingReport.time_in ? format(new Date(viewingReport.time_in), 'h:mm a') : '-'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">Location</div>
-                  <div className="font-medium">{getLocationName(viewingReport.location_id)}</div>
+                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Location</div>
+                  <div className="font-semibold">{getLocationName(viewingReport.location_id)}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">Spot</div>
-                  <div className="font-medium">{getSpotName(viewingReport.spot_id)}</div>
+                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Spot</div>
+                  <div className="font-semibold">{getSpotName(viewingReport.spot_id)}</div>
                 </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Visit Type</div>
-                  <div className="font-medium capitalize">{viewingReport.visit_type || 'routine'}</div>
+              </div>
+
+              {/* Visit Details */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-3 border rounded-lg">
+                  <div className="text-xs text-muted-foreground">Visit Type</div>
+                  <Badge variant="outline" className="capitalize mt-1">{viewingReport.visit_type || 'routine'}</Badge>
                 </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Employee</div>
-                  <div className="font-medium">{getEmployeeName(viewingReport.employee_id)}</div>
+                <div className="p-3 border rounded-lg">
+                  <div className="text-xs text-muted-foreground">Employee</div>
+                  <div className="font-medium mt-1">{getEmployeeName(viewingReport.employee_id)}</div>
                 </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Cash Recollected</div>
-                  <div className="font-medium text-primary">${(viewingReport.total_cash_removed || 0).toFixed(2)}</div>
+                <div className="p-3 border rounded-lg bg-primary/5">
+                  <div className="text-xs text-muted-foreground">Cash Recollected</div>
+                  <div className="font-bold text-lg text-primary">${(viewingReport.total_cash_removed || 0).toFixed(2)}</div>
                 </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Rent Calculated</div>
-                  <div className="font-medium">${(viewingReport.rent_calculated || 0).toFixed(2)}</div>
+                <div className="p-3 border rounded-lg">
+                  <div className="text-xs text-muted-foreground">Rent Calculated</div>
+                  <div className="font-medium mt-1">${(viewingReport.rent_calculated || 0).toFixed(2)}</div>
                 </div>
               </div>
 
               {/* Slot Performance Summary */}
               {viewingReport.slot_performance_snapshot && viewingReport.slot_performance_snapshot.length > 0 && (
-                <div>
-                  <div className="text-sm text-muted-foreground mb-2">Slot Performance</div>
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="px-3 py-2 text-left">Slot</th>
-                          <th className="px-3 py-2 text-left">Product</th>
-                          <th className="px-3 py-2 text-center">Sold</th>
-                          <th className="px-3 py-2 text-center">Refilled</th>
-                          <th className="px-3 py-2 text-center">Stock</th>
-                          <th className="px-3 py-2 text-left">Replaced</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {viewingReport.slot_performance_snapshot.map((slot: any, index: number) => (
-                          <tr key={index} className={slot.has_issue ? 'bg-destructive/5' : ''}>
-                            <td className="px-3 py-2">#{slot.slot_number}</td>
-                            <td className="px-3 py-2">{slot.product_name || 'Unknown'}</td>
-                            <td className="px-3 py-2 text-center">{slot.units_sold || 0}</td>
-                            <td className="px-3 py-2 text-center">{slot.units_refilled || 0}</td>
-                            <td className="px-3 py-2 text-center">{slot.current_stock || 0}</td>
-                            <td className="px-3 py-2">
-                              {slot.is_replacing_toy ? (
-                                <Badge variant="secondary" className="text-xs">
-                                  {slot.original_product_name || 'Previous'} → {slot.product_name}
-                                </Badge>
-                              ) : '-'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <div className="space-y-3">
+                  <div className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Slot Performance</div>
+                  <div className="space-y-2">
+                    {viewingReport.slot_performance_snapshot.map((slot: any, index: number) => (
+                      <div 
+                        key={index} 
+                        className={cn(
+                          "border rounded-lg overflow-hidden",
+                          slot.has_issue && "border-destructive/50 bg-destructive/5"
+                        )}
+                      >
+                        {/* Slot Header */}
+                        <div className="flex items-center justify-between p-3 bg-muted/50">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm bg-background px-2 py-0.5 rounded">#{slot.slot_number}</span>
+                            {slot.is_replacing_toy ? (
+                              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
+                                <RefreshCw className="h-3 w-3 mr-1" />
+                                Replaced
+                              </Badge>
+                            ) : (
+                              <span className="font-medium">{slot.product_name || 'Unknown'}</span>
+                            )}
+                          </div>
+                          {slot.jam_type && (
+                            <Badge variant="destructive" className="text-xs">
+                              {slot.jam_type.replace(/_/g, ' ')}
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {/* If Replacement - Show Both Old and New Toys */}
+                        {slot.is_replacing_toy ? (
+                          <div className="p-3 space-y-3">
+                            {/* Old Toy Section */}
+                            <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-2 h-2 rounded-full bg-red-500" />
+                                <span className="text-sm font-semibold text-red-700 dark:text-red-400">Removed Toy</span>
+                              </div>
+                              <div className="text-sm font-medium mb-2">{slot.original_product_name || 'Unknown'}</div>
+                              <div className="grid grid-cols-4 gap-2 text-xs">
+                                <div className="p-2 bg-background rounded">
+                                  <div className="text-muted-foreground">Last Stock</div>
+                                  <div className="font-semibold">{slot.last_stock || 0}</div>
+                                </div>
+                                <div className="p-2 bg-background rounded">
+                                  <div className="text-muted-foreground">Sold</div>
+                                  <div className="font-semibold text-primary">{slot.units_sold || 0}</div>
+                                </div>
+                                <div className="p-2 bg-background rounded">
+                                  <div className="text-muted-foreground">Removed</div>
+                                  <div className="font-semibold">{slot.removed_for_replacement || 0}</div>
+                                </div>
+                                <div className="p-2 bg-background rounded">
+                                  <div className="text-muted-foreground">Capacity</div>
+                                  <div className="font-semibold">{slot.original_toy_capacity || slot.toy_capacity || 0}</div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* New Toy Section */}
+                            <div className="p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-2 h-2 rounded-full bg-green-500" />
+                                <span className="text-sm font-semibold text-green-700 dark:text-green-400">New Toy Installed</span>
+                              </div>
+                              <div className="text-sm font-medium mb-2">{slot.product_name || 'Unknown'}</div>
+                              <div className="grid grid-cols-3 gap-2 text-xs">
+                                <div className="p-2 bg-background rounded">
+                                  <div className="text-muted-foreground">Refilled</div>
+                                  <div className="font-semibold text-green-600">{slot.units_refilled || 0}</div>
+                                </div>
+                                <div className="p-2 bg-background rounded">
+                                  <div className="text-muted-foreground">Current Stock</div>
+                                  <div className="font-semibold">{slot.current_stock || 0}</div>
+                                </div>
+                                <div className="p-2 bg-background rounded">
+                                  <div className="text-muted-foreground">Capacity</div>
+                                  <div className="font-semibold">{slot.toy_capacity || 0}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Regular Slot - No Replacement */
+                          <div className="p-3">
+                            <div className="grid grid-cols-5 gap-2 text-xs">
+                              <div className="p-2 bg-muted/30 rounded text-center">
+                                <div className="text-muted-foreground">Last</div>
+                                <div className="font-semibold">{slot.last_stock || 0}</div>
+                              </div>
+                              <div className="p-2 bg-muted/30 rounded text-center">
+                                <div className="text-muted-foreground">Sold</div>
+                                <div className="font-semibold text-primary">{slot.units_sold || 0}</div>
+                              </div>
+                              <div className="p-2 bg-muted/30 rounded text-center">
+                                <div className="text-muted-foreground">Refilled</div>
+                                <div className="font-semibold text-green-600">{slot.units_refilled || 0}</div>
+                              </div>
+                              <div className="p-2 bg-muted/30 rounded text-center">
+                                <div className="text-muted-foreground">Stock</div>
+                                <div className="font-semibold">{slot.current_stock || 0}</div>
+                              </div>
+                              <div className="p-2 bg-muted/30 rounded text-center">
+                                <div className="text-muted-foreground">Capacity</div>
+                                <div className="font-semibold">{slot.toy_capacity || 0}</div>
+                              </div>
+                            </div>
+                            {slot.discrepancy !== 0 && slot.discrepancy != null && (
+                              <div className={cn(
+                                "mt-2 p-2 rounded text-xs flex items-center gap-1",
+                                slot.discrepancy > 0 ? "bg-green-500/10 text-green-700" : "bg-red-500/10 text-red-700"
+                              )}>
+                                <AlertCircle className="h-3 w-3" />
+                                Discrepancy: {slot.discrepancy > 0 ? '+' : ''}{slot.discrepancy}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Issue Description if any */}
+                        {slot.has_issue && slot.issue_description && (
+                          <div className="px-3 pb-3">
+                            <div className="p-2 bg-destructive/10 rounded text-xs text-destructive flex items-start gap-2">
+                              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                              <span>{slot.issue_description}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
 
+              {/* Machine Issues */}
               {viewingReport.is_jammed && (
-                <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/20">
-                  <div className="flex items-center gap-2 text-destructive font-medium">
+                <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/20">
+                  <div className="flex items-center gap-2 text-destructive font-semibold">
                     <AlertCircle className="h-4 w-4" />
                     Machine Issue Reported
                   </div>
                   {viewingReport.jam_status && (
-                    <div className="text-sm mt-1">{viewingReport.jam_status}</div>
+                    <div className="text-sm mt-2">{viewingReport.jam_status}</div>
                   )}
                 </div>
               )}
 
-              {viewingReport.coin_box_notes && (
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">Coin Box Notes</div>
-                  <div className="p-3 bg-muted rounded-lg text-sm">{viewingReport.coin_box_notes}</div>
-                </div>
-              )}
+              {/* Notes Section */}
+              <div className="space-y-3">
+                {viewingReport.coin_box_notes && (
+                  <div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Coin Box Notes</div>
+                    <div className="p-3 bg-muted/30 rounded-lg text-sm">{viewingReport.coin_box_notes}</div>
+                  </div>
+                )}
 
-              {viewingReport.observation_text && (
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">Observations</div>
-                  <div className="p-3 bg-muted rounded-lg text-sm">{viewingReport.observation_text}</div>
-                </div>
-              )}
+                {viewingReport.observation_text && (
+                  <div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Observations</div>
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm">{viewingReport.observation_text}</div>
+                  </div>
+                )}
 
-              {viewingReport.access_notes && (
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">Access Notes</div>
-                  <div className="p-3 bg-muted rounded-lg text-sm">{viewingReport.access_notes}</div>
-                </div>
-              )}
+                {viewingReport.access_notes && (
+                  <div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Access Notes</div>
+                    <div className="p-3 bg-muted/30 rounded-lg text-sm">{viewingReport.access_notes}</div>
+                  </div>
+                )}
 
-              {viewingReport.general_notes && (
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">General Notes</div>
-                  <div className="p-3 bg-muted rounded-lg text-sm">{viewingReport.general_notes}</div>
-                </div>
-              )}
+                {viewingReport.general_notes && (
+                  <div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">General Notes</div>
+                    <div className="p-3 bg-muted/30 rounded-lg text-sm">{viewingReport.general_notes}</div>
+                  </div>
+                )}
+              </div>
 
+              {/* Photo */}
               {viewingReport.photo_url && (
                 <div>
-                  <div className="text-sm text-muted-foreground mb-1">Photo</div>
+                  <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Photo</div>
                   <img 
                     src={viewingReport.photo_url} 
                     alt="Visit photo" 
-                    className="rounded-lg max-w-full h-auto"
+                    className="rounded-lg max-w-full h-auto border"
                   />
                 </div>
               )}
 
-              <div className="flex items-center gap-2 pt-2 border-t">
+              {/* Signature Status */}
+              <div className="flex items-center gap-2 pt-4 border-t">
                 {viewingReport.is_signed ? (
-                  <Badge variant="default" className="bg-success">
+                  <Badge className="bg-green-600 hover:bg-green-600">
                     <CheckCircle className="h-3 w-3 mr-1" />
-                    Signed
+                    Signed & Verified
                   </Badge>
                 ) : (
                   <Badge variant="secondary">Not Signed</Badge>
