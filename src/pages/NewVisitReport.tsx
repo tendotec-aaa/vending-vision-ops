@@ -215,13 +215,13 @@ export default function NewVisitReport() {
     return differenceInDays(new Date(), new Date(selectedSpotData.spot_last_visit_report));
   }, [selectedSpotData]);
 
-  // Calculate rent cost since last visit
+  // Calculate rent cost since last visit using correct formula: ((monthly_rent * 12) / 365) * days
   const rentCostSinceLastVisit = useMemo(() => {
     if (!selectedLocationData?.rent_amount || daysSinceLastVisit === null) return 0;
-    const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
     const spots = locationSpots?.filter(s => s.location_id === selectedLocation).length || 1;
     const rentPerSpot = Number(selectedLocationData.rent_amount) / spots;
-    return (rentPerSpot / daysInMonth) * daysSinceLastVisit;
+    // Formula: ((monthly_rent * 12) / 365) * days_active
+    return ((rentPerSpot * 12) / 365) * daysSinceLastVisit;
   }, [selectedLocationData, daysSinceLastVisit, locationSpots, selectedLocation]);
 
   // Calculate total capacity and current stock
@@ -322,13 +322,13 @@ export default function NewVisitReport() {
     setMachineAudits(audits);
   }, [selectedSpot, locationSpots, setupMachines, machineSlots, lastVisitReport]);
 
-  // Calculate total cash recollected
+  // Calculate total cash recollected - $1 per unit sold
   const totalCashRecollected = useMemo(() => {
     let total = 0;
     machineAudits.forEach(machine => {
       machine.slots.forEach(slot => {
         if (slot.toy_id && slot.units_sold > 0) {
-          total += slot.units_sold * 0.50;
+          total += slot.units_sold * 1.00; // $1 per unit
         }
       });
     });
@@ -414,6 +414,16 @@ export default function NewVisitReport() {
       toast.error('Please sign off on the report');
       return;
     }
+    
+    // Validate visit date is not before last visit
+    if (selectedSpotData?.spot_last_visit_report) {
+      const lastVisitDate = new Date(selectedSpotData.spot_last_visit_report);
+      const newVisitDate = new Date(visitDate);
+      if (newVisitDate < lastVisitDate) {
+        toast.error(`Visit date cannot be before last visit (${format(lastVisitDate, 'MMM d, yyyy')})`);
+        return;
+      }
+    }
 
     setIsSubmitting(true);
     try {
@@ -425,6 +435,8 @@ export default function NewVisitReport() {
 
       // Build the slot_performance_snapshot JSONB array with product_name
       const slotPerformanceSnapshot: any[] = [];
+      const issuesForWorkOrders: { machine_serial: string; slot_number: number; description: string; severity: string }[] = [];
+      
       machineAudits.forEach(machine => {
         machine.slots.forEach(slot => {
           const existingSlot = machineSlots?.find(
@@ -434,6 +446,7 @@ export default function NewVisitReport() {
           if (slot.toy_id || slot.replacement_toy_id) {
             const productId = slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id;
             const product = products?.find(p => p.id === productId);
+            const originalProduct = products?.find(p => p.id === slot.toy_id);
             
             slotPerformanceSnapshot.push({
               slot_id: existingSlot?.id || null,
@@ -441,6 +454,8 @@ export default function NewVisitReport() {
               slot_number: slot.slot_number,
               product_id: productId,
               product_name: product?.product_name || slot.toy_name || 'Unknown',
+              original_product_id: slot.is_replacing_toy ? slot.toy_id : null,
+              original_product_name: slot.is_replacing_toy ? (originalProduct?.product_name || slot.toy_name) : null,
               toy_capacity: slot.toy_capacity,
               last_stock: slot.last_stock,
               current_stock: slot.calculated_stock,
@@ -457,12 +472,21 @@ export default function NewVisitReport() {
               replacement_product_id: slot.is_replacing_toy ? slot.replacement_toy_id : null,
               removed_for_replacement: slot.removed_for_replacement,
             });
+            
+            // Collect issues for work orders
+            if (slot.has_issue && slot.issue_description) {
+              issuesForWorkOrders.push({
+                machine_serial: machine.serial_number,
+                slot_number: slot.slot_number,
+                description: slot.issue_description,
+                severity: slot.issue_severity,
+              });
+            }
           }
         });
       });
 
       // Create visit report with JSONB snapshot (triggers handle inventory updates)
-      // Note: time_out is eliminated - only time_in is used
       const { data: report, error: reportError } = await supabase
         .from('visit_reports')
         .insert({
@@ -487,7 +511,31 @@ export default function NewVisitReport() {
 
       if (reportError) throw reportError;
 
-      // Insert stock records for backward compatibility (trigger also handles inventory)
+      // Create work orders for issues reported on slots
+      if (issuesForWorkOrders.length > 0) {
+        const workOrdersToInsert = issuesForWorkOrders.map(issue => ({
+          company_id: profile?.company_id!,
+          location_id: selectedLocation,
+          issue_type: `Slot Issue - ${issue.machine_serial} Slot #${issue.slot_number}`,
+          description: issue.description,
+          status: 'pending',
+        }));
+        
+        await supabase.from('work_orders').insert(workOrdersToInsert);
+      }
+      
+      // Create work order for observation if flagged
+      if (hasObservation && observation) {
+        await supabase.from('work_orders').insert({
+          company_id: profile?.company_id!,
+          location_id: selectedLocation,
+          issue_type: 'Observation',
+          description: observation,
+          status: 'pending',
+        });
+      }
+
+      // Insert stock records for backward compatibility
       const stockRecords: any[] = [];
 
       machineAudits.forEach(machine => {
@@ -533,6 +581,7 @@ export default function NewVisitReport() {
       queryClient.invalidateQueries({ queryKey: ['locations'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['machine_toy_slots'] });
+      queryClient.invalidateQueries({ queryKey: ['work_orders'] });
       toast.success('Visit report submitted successfully!');
       navigate('/visit-reports');
     } catch (error: any) {
@@ -693,6 +742,20 @@ export default function NewVisitReport() {
                 </div>
               </div>
 
+              {/* Last Visit Photo */}
+              {lastVisitReport?.photo_url && (
+                <div className="mt-4 p-3 bg-background rounded-lg">
+                  <div className="text-sm font-medium mb-2">Last Service Photo</div>
+                  <div className="w-full max-w-[200px] mx-auto aspect-video overflow-hidden rounded-lg">
+                    <img 
+                      src={lastVisitReport.photo_url} 
+                      alt="Last visit" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+
               {machineAudits.length > 0 && (
                 <div className="mt-4 p-3 bg-background rounded-lg">
                   <div className="flex justify-between items-center mb-2">
@@ -733,8 +796,16 @@ export default function NewVisitReport() {
                 id="visitDate"
                 type="date"
                 value={visitDate}
+                min={selectedSpotData?.spot_last_visit_report 
+                  ? new Date(selectedSpotData.spot_last_visit_report).toISOString().split('T')[0]
+                  : undefined}
                 onChange={(e) => setVisitDate(e.target.value)}
               />
+              {selectedSpotData?.spot_last_visit_report && (
+                <p className="text-xs text-muted-foreground">
+                  Cannot be before last visit: {format(new Date(selectedSpotData.spot_last_visit_report), 'MMM d, yyyy')}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -891,21 +962,34 @@ export default function NewVisitReport() {
                             </div>
 
                             {slot.is_replacing_toy && (
-                              <div className="grid grid-cols-2 gap-2 p-2 border-l-2 border-primary/50">
-                                <div className="space-y-1">
-                                  <Label className="text-xs">Removed Count</Label>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    value={slot.removed_for_replacement}
-                                    onChange={(e) => updateSlotField(machineIndex, slotIndex, 'removed_for_replacement', parseInt(e.target.value) || 0)}
-                                    className="h-8"
-                                  />
-                                  {slot.removed_for_replacement !== slot.calculated_stock && slot.removed_for_replacement > 0 && (
-                                    <p className="text-xs text-destructive">
-                                      Expected: {slot.calculated_stock} (discrepancy detected)
-                                    </p>
-                                  )}
+                              <div className="space-y-3 p-2 border-l-2 border-primary/50">
+                                <div className="text-xs font-medium text-muted-foreground">Current Toy: {slot.toy_name}</div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Units Sold</Label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={slot.units_sold}
+                                      onChange={(e) => updateSlotField(machineIndex, slotIndex, 'units_sold', parseInt(e.target.value) || 0)}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Removed Count</Label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={slot.removed_for_replacement}
+                                      onChange={(e) => updateSlotField(machineIndex, slotIndex, 'removed_for_replacement', parseInt(e.target.value) || 0)}
+                                      className="h-8"
+                                    />
+                                    {slot.removed_for_replacement !== slot.calculated_stock && slot.removed_for_replacement > 0 && (
+                                      <p className="text-xs text-destructive">
+                                        Expected: {slot.calculated_stock} (discrepancy detected)
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="space-y-1">
                                   <Label className="text-xs">New Toy</Label>
@@ -914,14 +998,36 @@ export default function NewVisitReport() {
                                     onValueChange={(v) => updateSlotField(machineIndex, slotIndex, 'replacement_toy_id', v)}
                                   >
                                     <SelectTrigger className="h-8">
-                                      <SelectValue placeholder="Select" />
+                                      <SelectValue placeholder="Select replacement toy" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {products?.map(product => (
+                                      {products?.filter(p => p.id !== slot.toy_id).map(product => (
                                         <SelectItem key={product.id} value={product.id}>{product.product_name}</SelectItem>
                                       ))}
                                     </SelectContent>
                                   </Select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Units Refilled (New Toy)</Label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={slot.units_refilled}
+                                      onChange={(e) => updateSlotField(machineIndex, slotIndex, 'units_refilled', parseInt(e.target.value) || 0)}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Slot Capacity</Label>
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      value={slot.toy_capacity}
+                                      onChange={(e) => updateSlotField(machineIndex, slotIndex, 'toy_capacity', parseInt(e.target.value) || 20)}
+                                      className="h-8"
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             )}

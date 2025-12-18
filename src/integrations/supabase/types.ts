@@ -745,45 +745,99 @@ export type Database = {
       }
       toy_movements: {
         Row: {
+          audited_amount: number | null
           company_id: string
+          company_name: string | null
           created_at: string
+          current_stock: number | null
           id: string
+          is_replaced: boolean | null
+          jam_amount: number | null
+          jam_type: string | null
+          last_stock: number | null
+          location_id: string | null
+          location_name: string | null
           machine_id: string | null
           movement_type: string
           notes: string | null
           product_id: string | null
           product_name: string | null
           quantity: number
+          refill_amount: number | null
+          removal_amount: number | null
+          replacement_product_id: string | null
+          sale_amount: number | null
           slot_number: number | null
           spot_id: string | null
+          spot_name: string | null
+          surplus_shortage_amount: number | null
+          toy_capacity: number | null
+          user_id: string | null
+          visit_report_date: string | null
           visit_report_id: string
         }
         Insert: {
+          audited_amount?: number | null
           company_id: string
+          company_name?: string | null
           created_at?: string
+          current_stock?: number | null
           id?: string
+          is_replaced?: boolean | null
+          jam_amount?: number | null
+          jam_type?: string | null
+          last_stock?: number | null
+          location_id?: string | null
+          location_name?: string | null
           machine_id?: string | null
           movement_type: string
           notes?: string | null
           product_id?: string | null
           product_name?: string | null
           quantity?: number
+          refill_amount?: number | null
+          removal_amount?: number | null
+          replacement_product_id?: string | null
+          sale_amount?: number | null
           slot_number?: number | null
           spot_id?: string | null
+          spot_name?: string | null
+          surplus_shortage_amount?: number | null
+          toy_capacity?: number | null
+          user_id?: string | null
+          visit_report_date?: string | null
           visit_report_id: string
         }
         Update: {
+          audited_amount?: number | null
           company_id?: string
+          company_name?: string | null
           created_at?: string
+          current_stock?: number | null
           id?: string
+          is_replaced?: boolean | null
+          jam_amount?: number | null
+          jam_type?: string | null
+          last_stock?: number | null
+          location_id?: string | null
+          location_name?: string | null
           machine_id?: string | null
           movement_type?: string
           notes?: string | null
           product_id?: string | null
           product_name?: string | null
           quantity?: number
+          refill_amount?: number | null
+          removal_amount?: number | null
+          replacement_product_id?: string | null
+          sale_amount?: number | null
           slot_number?: number | null
           spot_id?: string | null
+          spot_name?: string | null
+          surplus_shortage_amount?: number | null
+          toy_capacity?: number | null
+          user_id?: string | null
+          visit_report_date?: string | null
           visit_report_id?: string
         }
         Relationships: [
