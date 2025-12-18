@@ -68,6 +68,22 @@ interface MachineAudit {
   slots: ToySlotAudit[];
 }
 
+const DRAFT_STORAGE_KEY = 'visit_report_draft';
+
+interface DraftData {
+  selectedLocation: string;
+  selectedSpot: string;
+  visitType: string;
+  visitDate: string;
+  accessNotes: string;
+  coinBoxNotes: string;
+  hasObservation: boolean;
+  observation: string;
+  generalNotes: string;
+  machineAudits: MachineAudit[];
+  savedAt: string;
+}
+
 export default function NewVisitReport() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -91,6 +107,79 @@ export default function NewVisitReport() {
   const [machineAudits, setMachineAudits] = useState<MachineAudit[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [hasDraft, setHasDraft] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+
+  // Save draft to localStorage
+  const saveDraft = () => {
+    const draft: DraftData = {
+      selectedLocation,
+      selectedSpot,
+      visitType,
+      visitDate,
+      accessNotes,
+      coinBoxNotes,
+      hasObservation,
+      observation,
+      generalNotes,
+      machineAudits,
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  };
+
+  // Load draft from localStorage
+  const loadDraft = () => {
+    try {
+      const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (saved) {
+        const draft: DraftData = JSON.parse(saved);
+        setSelectedLocation(draft.selectedLocation || '');
+        setSelectedSpot(draft.selectedSpot || '');
+        setVisitType(draft.visitType || 'routine');
+        setVisitDate(draft.visitDate || new Date().toISOString().split('T')[0]);
+        setAccessNotes(draft.accessNotes || '');
+        setCoinBoxNotes(draft.coinBoxNotes || '');
+        setHasObservation(draft.hasObservation || false);
+        setObservation(draft.observation || '');
+        setGeneralNotes(draft.generalNotes || '');
+        if (draft.machineAudits?.length > 0) {
+          setMachineAudits(draft.machineAudits);
+        }
+        toast.info(`Draft restored from ${format(new Date(draft.savedAt), 'PPp')}`);
+      }
+    } catch (e) {
+      console.error('Failed to load draft:', e);
+    }
+    setDraftLoaded(true);
+  };
+
+  // Clear draft
+  const clearDraft = () => {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    setHasDraft(false);
+  };
+
+  // Check for existing draft on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (saved) {
+      setHasDraft(true);
+    } else {
+      setDraftLoaded(true);
+    }
+  }, []);
+
+  // Auto-save draft when form changes (debounced)
+  useEffect(() => {
+    if (!draftLoaded) return;
+    const timeoutId = setTimeout(() => {
+      if (selectedLocation || selectedSpot || accessNotes || coinBoxNotes || observation || generalNotes || machineAudits.length > 0) {
+        saveDraft();
+      }
+    }, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [selectedLocation, selectedSpot, visitType, visitDate, accessNotes, coinBoxNotes, hasObservation, observation, generalNotes, machineAudits, draftLoaded]);
 
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
@@ -582,6 +671,7 @@ export default function NewVisitReport() {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['machine_toy_slots'] });
       queryClient.invalidateQueries({ queryKey: ['work_orders'] });
+      clearDraft();
       toast.success('Visit report submitted successfully!');
       navigate('/visit-reports');
     } catch (error: any) {
@@ -612,6 +702,30 @@ export default function NewVisitReport() {
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-4">
+        {/* Draft Restore Prompt */}
+        {hasDraft && !draftLoaded && (
+          <Card className="bg-amber-500/10 border-amber-500/30">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-500" />
+                  <div>
+                    <p className="font-medium text-sm">You have a saved draft</p>
+                    <p className="text-xs text-muted-foreground">Would you like to restore it?</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => { clearDraft(); setDraftLoaded(true); }}>
+                    Discard
+                  </Button>
+                  <Button size="sm" onClick={loadDraft}>
+                    Restore
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {/* User Profile Card */}
         <Card className="bg-gradient-to-r from-primary/10 to-primary/5">
           <CardContent className="pt-4">
