@@ -52,6 +52,7 @@ import {
   CalendarIcon,
   FileText,
   AlertCircle,
+  AlertTriangle,
   CheckCircle,
   RefreshCw
 } from 'lucide-react';
@@ -613,135 +614,220 @@ export default function VisitReports() {
                 <div className="space-y-3">
                   <div className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Slot Performance</div>
                   <div className="space-y-2">
-                    {viewingReport.slot_performance_snapshot.map((slot: any, index: number) => (
-                      <div 
-                        key={index} 
-                        className={cn(
-                          "border rounded-lg overflow-hidden",
-                          slot.has_issue && "border-destructive/50 bg-destructive/5"
-                        )}
-                      >
-                        {/* Slot Header */}
-                        <div className="flex items-center justify-between p-3 bg-muted/50">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm bg-background px-2 py-0.5 rounded">#{slot.slot_number}</span>
-                            {slot.is_replacing_toy ? (
-                              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
-                                <RefreshCw className="h-3 w-3 mr-1" />
-                                Replaced
-                              </Badge>
-                            ) : (
-                              <span className="font-medium">{slot.product_name || 'Unknown'}</span>
-                            )}
-                          </div>
-                          {slot.jam_type && (
-                            <Badge variant="destructive" className="text-xs">
-                              {slot.jam_type.replace(/_/g, ' ')}
-                            </Badge>
+                    {viewingReport.slot_performance_snapshot.map((slot: any, index: number) => {
+                      const formatJamType = (jamType: string) => {
+                        const formatted = jamType.replace(/_/g, ' ').split(' ')
+                          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(' ');
+                        return jamType === 'jammed_with_coins' ? `${formatted} +1` : formatted;
+                      };
+                      
+                      const stockPercentage = slot.toy_capacity > 0 
+                        ? Math.min(100, Math.round((slot.current_stock / slot.toy_capacity) * 100))
+                        : 0;
+                      
+                      // Calculate surplus/shortage for old toy in replacement
+                      const surplusShortage = slot.is_replacing_toy
+                        ? (slot.surplus_shortage ?? (slot.removed_for_replacement - (slot.last_stock - slot.units_sold)))
+                        : 0;
+                      
+                      return (
+                        <div 
+                          key={index} 
+                          className={cn(
+                            "border rounded-lg overflow-hidden",
+                            slot.has_issue && "border-destructive/50 bg-destructive/5"
                           )}
-                        </div>
-                        
-                        {/* If Replacement - Show Both Old and New Toys */}
-                        {slot.is_replacing_toy ? (
-                          <div className="p-3 space-y-3">
-                            {/* Old Toy Section */}
-                            <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20">
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className="w-2 h-2 rounded-full bg-red-500" />
-                                <span className="text-sm font-semibold text-red-700 dark:text-red-400">Removed Toy</span>
+                        >
+                          {/* Slot Header */}
+                          <div className="flex items-center justify-between p-3 bg-muted/50">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm bg-background px-2 py-0.5 rounded">#{slot.slot_number}</span>
+                              {slot.is_replacing_toy ? (
+                                <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
+                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                  Replaced
+                                </Badge>
+                              ) : (
+                                <span className="font-medium">{slot.product_name || 'Unknown'}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {slot.jam_type && (
+                                <Badge variant="destructive" className="text-xs">
+                                  {formatJamType(slot.jam_type)}
+                                </Badge>
+                              )}
+                              {slot.has_issue && (
+                                <Badge variant="outline" className="bg-orange-500/10 text-orange-700 border-orange-500/30 text-xs">
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                  Issue
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* If Replacement - Show Both Old and New Toys */}
+                          {slot.is_replacing_toy ? (
+                            <div className="p-3 space-y-3">
+                              {/* Old Toy Section */}
+                              <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                                  <span className="text-sm font-semibold text-red-700 dark:text-red-400">Removed Toy</span>
+                                </div>
+                                <div className="text-sm font-medium mb-2">{slot.original_product_name || 'Unknown'}</div>
+                                <div className="grid grid-cols-5 gap-2 text-xs">
+                                  <div className="p-2 bg-background rounded">
+                                    <div className="text-muted-foreground">Last Stock</div>
+                                    <div className="font-semibold">{slot.last_stock || 0}</div>
+                                  </div>
+                                  <div className="p-2 bg-background rounded">
+                                    <div className="text-muted-foreground">Sold</div>
+                                    <div className="font-semibold text-primary">{slot.units_sold || 0}</div>
+                                  </div>
+                                  <div className="p-2 bg-background rounded">
+                                    <div className="text-muted-foreground">Removed</div>
+                                    <div className="font-semibold">{slot.removed_for_replacement || 0}</div>
+                                  </div>
+                                  <div className="p-2 bg-background rounded">
+                                    <div className="text-muted-foreground">Surplus/Short</div>
+                                    <div className={cn(
+                                      "font-semibold",
+                                      surplusShortage > 0 ? "text-green-600" : surplusShortage < 0 ? "text-red-600" : ""
+                                    )}>
+                                      {surplusShortage > 0 ? '+' : ''}{surplusShortage}
+                                    </div>
+                                  </div>
+                                  <div className="p-2 bg-background rounded">
+                                    <div className="text-muted-foreground">Capacity</div>
+                                    <div className="font-semibold">{slot.original_toy_capacity || 0}</div>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-sm font-medium mb-2">{slot.original_product_name || 'Unknown'}</div>
+                              
+                              {/* New Toy Section */}
+                              <div className="p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                                  <span className="text-sm font-semibold text-green-700 dark:text-green-400">New Toy Installed</span>
+                                </div>
+                                <div className="text-sm font-medium mb-2">{slot.product_name || 'Unknown'}</div>
+                                <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+                                  <div className="p-2 bg-background rounded">
+                                    <div className="text-muted-foreground">Refilled</div>
+                                    <div className="font-semibold text-green-600">{slot.units_refilled || 0}</div>
+                                  </div>
+                                  <div className="p-2 bg-background rounded">
+                                    <div className="text-muted-foreground">Current Stock</div>
+                                    <div className="font-semibold">{slot.current_stock || 0}</div>
+                                  </div>
+                                  <div className="p-2 bg-background rounded">
+                                    <div className="text-muted-foreground">Capacity</div>
+                                    <div className="font-semibold">{slot.toy_capacity || 0}</div>
+                                  </div>
+                                </div>
+                                {/* Stock vs Capacity Bar */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-xs text-muted-foreground">
+                                    <span>Stock Level</span>
+                                    <span>{slot.current_stock || 0} / {slot.toy_capacity || 0}</span>
+                                  </div>
+                                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                    <div 
+                                      className={cn(
+                                        "h-full transition-all",
+                                        stockPercentage > 50 ? "bg-green-500" : stockPercentage > 25 ? "bg-amber-500" : "bg-red-500"
+                                      )}
+                                      style={{ width: `${stockPercentage}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Regular Slot - No Replacement */
+                            <div className="p-3 space-y-2">
                               <div className="grid grid-cols-4 gap-2 text-xs">
-                                <div className="p-2 bg-background rounded">
-                                  <div className="text-muted-foreground">Last Stock</div>
+                                <div className="p-2 bg-muted/30 rounded text-center">
+                                  <div className="text-muted-foreground">Last</div>
                                   <div className="font-semibold">{slot.last_stock || 0}</div>
                                 </div>
-                                <div className="p-2 bg-background rounded">
+                                <div className="p-2 bg-muted/30 rounded text-center">
                                   <div className="text-muted-foreground">Sold</div>
                                   <div className="font-semibold text-primary">{slot.units_sold || 0}</div>
                                 </div>
-                                <div className="p-2 bg-background rounded">
-                                  <div className="text-muted-foreground">Removed</div>
-                                  <div className="font-semibold">{slot.removed_for_replacement || 0}</div>
-                                </div>
-                                <div className="p-2 bg-background rounded">
-                                  <div className="text-muted-foreground">Capacity</div>
-                                  <div className="font-semibold">{slot.original_toy_capacity || slot.toy_capacity || 0}</div>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* New Toy Section */}
-                            <div className="p-3 rounded-lg bg-green-500/5 border border-green-500/20">
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className="w-2 h-2 rounded-full bg-green-500" />
-                                <span className="text-sm font-semibold text-green-700 dark:text-green-400">New Toy Installed</span>
-                              </div>
-                              <div className="text-sm font-medium mb-2">{slot.product_name || 'Unknown'}</div>
-                              <div className="grid grid-cols-3 gap-2 text-xs">
-                                <div className="p-2 bg-background rounded">
+                                <div className="p-2 bg-muted/30 rounded text-center">
                                   <div className="text-muted-foreground">Refilled</div>
                                   <div className="font-semibold text-green-600">{slot.units_refilled || 0}</div>
                                 </div>
-                                <div className="p-2 bg-background rounded">
+                                <div className="p-2 bg-muted/30 rounded text-center">
                                   <div className="text-muted-foreground">Current Stock</div>
                                   <div className="font-semibold">{slot.current_stock || 0}</div>
                                 </div>
-                                <div className="p-2 bg-background rounded">
-                                  <div className="text-muted-foreground">Capacity</div>
-                                  <div className="font-semibold">{slot.toy_capacity || 0}</div>
+                              </div>
+                              
+                              {/* Stock vs Capacity Bar */}
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                  <span>Stock Level</span>
+                                  <span>{slot.current_stock || 0} / {slot.toy_capacity || 0}</span>
+                                </div>
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                  <div 
+                                    className={cn(
+                                      "h-full transition-all",
+                                      stockPercentage > 50 ? "bg-green-500" : stockPercentage > 25 ? "bg-amber-500" : "bg-red-500"
+                                    )}
+                                    style={{ width: `${stockPercentage}%` }}
+                                  />
                                 </div>
                               </div>
+                              
+                              {slot.discrepancy !== 0 && slot.discrepancy != null && (
+                                <Badge 
+                                  variant="outline" 
+                                  className={cn(
+                                    "text-xs",
+                                    slot.discrepancy > 0 
+                                      ? "bg-green-500/10 text-green-700 border-green-500/30" 
+                                      : "bg-red-500/10 text-red-700 border-red-500/30"
+                                  )}
+                                >
+                                  Discrepancy: {slot.discrepancy > 0 ? '+' : ''}{slot.discrepancy}
+                                </Badge>
+                              )}
                             </div>
-                          </div>
-                        ) : (
-                          /* Regular Slot - No Replacement */
-                          <div className="p-3">
-                            <div className="grid grid-cols-5 gap-2 text-xs">
-                              <div className="p-2 bg-muted/30 rounded text-center">
-                                <div className="text-muted-foreground">Last</div>
-                                <div className="font-semibold">{slot.last_stock || 0}</div>
-                              </div>
-                              <div className="p-2 bg-muted/30 rounded text-center">
-                                <div className="text-muted-foreground">Sold</div>
-                                <div className="font-semibold text-primary">{slot.units_sold || 0}</div>
-                              </div>
-                              <div className="p-2 bg-muted/30 rounded text-center">
-                                <div className="text-muted-foreground">Refilled</div>
-                                <div className="font-semibold text-green-600">{slot.units_refilled || 0}</div>
-                              </div>
-                              <div className="p-2 bg-muted/30 rounded text-center">
-                                <div className="text-muted-foreground">Stock</div>
-                                <div className="font-semibold">{slot.current_stock || 0}</div>
-                              </div>
-                              <div className="p-2 bg-muted/30 rounded text-center">
-                                <div className="text-muted-foreground">Capacity</div>
-                                <div className="font-semibold">{slot.toy_capacity || 0}</div>
+                          )}
+                          
+                          {/* Issue Description if any */}
+                          {slot.has_issue && slot.issue_description && (
+                            <div className="px-3 pb-3">
+                              <div className="p-2 bg-destructive/10 rounded-lg border border-destructive/20">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <AlertCircle className="h-3 w-3 text-destructive" />
+                                  <span className="text-xs font-semibold text-destructive">Reported Issue</span>
+                                  {slot.issue_severity && (
+                                    <Badge 
+                                      variant="outline" 
+                                      className={cn(
+                                        "text-[10px] px-1.5 py-0",
+                                        slot.issue_severity === 'high' ? "bg-red-500/20 text-red-700 border-red-500/30" :
+                                        slot.issue_severity === 'medium' ? "bg-amber-500/20 text-amber-700 border-amber-500/30" :
+                                        "bg-blue-500/20 text-blue-700 border-blue-500/30"
+                                      )}
+                                    >
+                                      {slot.issue_severity}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">{slot.issue_description}</p>
                               </div>
                             </div>
-                            {slot.discrepancy !== 0 && slot.discrepancy != null && (
-                              <div className={cn(
-                                "mt-2 p-2 rounded text-xs flex items-center gap-1",
-                                slot.discrepancy > 0 ? "bg-green-500/10 text-green-700" : "bg-red-500/10 text-red-700"
-                              )}>
-                                <AlertCircle className="h-3 w-3" />
-                                Discrepancy: {slot.discrepancy > 0 ? '+' : ''}{slot.discrepancy}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        
-                        {/* Issue Description if any */}
-                        {slot.has_issue && slot.issue_description && (
-                          <div className="px-3 pb-3">
-                            <div className="p-2 bg-destructive/10 rounded text-xs text-destructive flex items-start gap-2">
-                              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-                              <span>{slot.issue_description}</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
