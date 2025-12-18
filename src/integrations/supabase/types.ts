@@ -766,6 +766,7 @@ export type Database = {
           refill_amount: number | null
           removal_amount: number | null
           replacement_product_id: string | null
+          replacement_product_name: string | null
           sale_amount: number | null
           slot_number: number | null
           spot_id: string | null
@@ -798,6 +799,7 @@ export type Database = {
           refill_amount?: number | null
           removal_amount?: number | null
           replacement_product_id?: string | null
+          replacement_product_name?: string | null
           sale_amount?: number | null
           slot_number?: number | null
           spot_id?: string | null
@@ -830,6 +832,7 @@ export type Database = {
           refill_amount?: number | null
           removal_amount?: number | null
           replacement_product_id?: string | null
+          replacement_product_name?: string | null
           sale_amount?: number | null
           slot_number?: number | null
           spot_id?: string | null

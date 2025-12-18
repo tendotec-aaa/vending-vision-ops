@@ -1098,11 +1098,18 @@ export default function NewVisitReport() {
                                       onChange={(e) => updateSlotField(machineIndex, slotIndex, 'removed_for_replacement', parseInt(e.target.value) || 0)}
                                       className="h-8"
                                     />
-                                    {slot.removed_for_replacement !== slot.calculated_stock && slot.removed_for_replacement > 0 && (
-                                      <p className="text-xs text-destructive">
-                                        Expected: {slot.calculated_stock} (discrepancy detected)
-                                      </p>
-                                    )}
+                                    {(() => {
+                                      // Expected remaining of old toy = last_stock - units_sold
+                                      const expectedRemaining = slot.last_stock - slot.units_sold;
+                                      if (slot.removed_for_replacement !== expectedRemaining && slot.removed_for_replacement > 0) {
+                                        return (
+                                          <p className="text-xs text-destructive">
+                                            Expected: {expectedRemaining} (surplus/shortage: {slot.removed_for_replacement - expectedRemaining > 0 ? '+' : ''}{slot.removed_for_replacement - expectedRemaining})
+                                          </p>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                   </div>
                                 </div>
                                 <div className="space-y-1">
