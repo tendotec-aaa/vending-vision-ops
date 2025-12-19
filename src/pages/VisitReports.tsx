@@ -60,23 +60,30 @@ import { cn } from '@/lib/utils';
 
 interface VisitReport {
   id: string;
-  visit_date: string;
+  company_id: string;
+  employee_id: string | null;
   location_id: string;
   spot_id: string | null;
+  setup_id: string | null;
+  employee_name_snapshot: string | null;
+  location_name_snapshot: string | null;
+  spot_name_snapshot: string | null;
+  visit_date: string;
   visit_type: string | null;
-  is_jammed: boolean | null;
-  has_observation: boolean | null;
-  observation_text: string | null;
-  jam_status: string | null;
-  photo_url: string | null;
-  total_cash_removed: number | null;
-  is_signed: boolean | null;
-  time_in: string | null;
-  access_notes: string | null;
+  visit_summary: string | null;
+  total_cash_collected: number | null;
+  total_units_sold: number | null;
+  total_units_refilled: number | null;
+  total_units_removed: number | null;
+  total_units_surplus_shortage: number | null;
+  total_current_stock: number | null;
+  total_toy_capacity: number | null;
+  total_issues_reported: number | null;
+  image_url: string | null;
   general_notes: string | null;
-  coin_box_notes: string | null;
-  employee_id: string | null;
-  rent_calculated: number | null;
+  observation_text: string | null;
+  is_signed: boolean | null;
+  created_at: string;
   slot_performance_snapshot: any[] | null;
 }
 
@@ -296,15 +303,15 @@ export default function VisitReports() {
     ];
 
     const rows = filteredReports.map(report => [
-      report.time_in ? format(new Date(report.time_in), 'yyyy-MM-dd') : format(new Date(report.visit_date), 'yyyy-MM-dd'),
-      getLocationName(report.location_id),
-      getSpotName(report.spot_id),
+      format(new Date(report.visit_date), 'yyyy-MM-dd'),
+      report.location_name_snapshot || getLocationName(report.location_id),
+      report.spot_name_snapshot || getSpotName(report.spot_id),
       report.visit_type || 'routine',
-      getEmployeeName(report.employee_id),
-      report.time_in ? format(new Date(report.time_in), 'HH:mm') : '-',
-      report.total_cash_removed?.toFixed(2) || '0.00',
-      (report.rent_calculated || 0).toFixed(2),
-      report.is_jammed ? 'Yes' : 'No',
+      report.employee_name_snapshot || getEmployeeName(report.employee_id),
+      '-',
+      report.total_cash_collected?.toFixed(2) || '0.00',
+      '0.00',
+      (report.total_issues_reported || 0) > 0 ? 'Yes' : 'No',
       report.observation_text || '-',
       report.is_signed ? 'Yes' : 'No'
     ]);
@@ -325,8 +332,8 @@ export default function VisitReports() {
   const summary = useMemo(() => {
     return {
       total: filteredReports.length,
-      withIssues: filteredReports.filter(r => r.is_jammed).length,
-      totalCash: filteredReports.reduce((sum, r) => sum + (r.total_cash_removed || 0), 0),
+      withIssues: filteredReports.filter(r => (r.total_issues_reported || 0) > 0).length,
+      totalCash: filteredReports.reduce((sum, r) => sum + (r.total_cash_collected || 0), 0),
       signed: filteredReports.filter(r => r.is_signed).length,
     };
   }, [filteredReports]);
@@ -524,10 +531,10 @@ export default function VisitReports() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">{getEmployeeName(report.employee_id)}</TableCell>
-                    <TableCell>${(report.total_cash_removed || 0).toFixed(2)}</TableCell>
+                    <TableCell>${(report.total_cash_collected || 0).toFixed(2)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {report.is_jammed && (
+                        {(report.total_issues_reported || 0) > 0 && (
                           <AlertCircle className="h-4 w-4 text-destructive" />
                         )}
                         {report.is_signed && (
@@ -568,24 +575,20 @@ export default function VisitReports() {
                 <div>
                   <div className="text-xs text-muted-foreground uppercase tracking-wide">Date</div>
                   <div className="font-semibold">
-                    {viewingReport.time_in 
-                      ? format(new Date(viewingReport.time_in), 'PPP') 
-                      : format(new Date(viewingReport.visit_date), 'PPP')}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Time In</div>
-                  <div className="font-semibold">
-                    {viewingReport.time_in ? format(new Date(viewingReport.time_in), 'h:mm a') : '-'}
+                    {format(new Date(viewingReport.visit_date), 'PPP')}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground uppercase tracking-wide">Location</div>
-                  <div className="font-semibold">{getLocationName(viewingReport.location_id)}</div>
+                  <div className="font-semibold">{viewingReport.location_name_snapshot || getLocationName(viewingReport.location_id)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground uppercase tracking-wide">Spot</div>
-                  <div className="font-semibold">{getSpotName(viewingReport.spot_id)}</div>
+                  <div className="font-semibold">{viewingReport.spot_name_snapshot || getSpotName(viewingReport.spot_id)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Employee</div>
+                  <div className="font-semibold">{viewingReport.employee_name_snapshot || getEmployeeName(viewingReport.employee_id)}</div>
                 </div>
               </div>
 
@@ -596,16 +599,16 @@ export default function VisitReports() {
                   <Badge variant="outline" className="capitalize mt-1">{viewingReport.visit_type || 'routine'}</Badge>
                 </div>
                 <div className="p-3 border rounded-lg">
-                  <div className="text-xs text-muted-foreground">Employee</div>
-                  <div className="font-medium mt-1">{getEmployeeName(viewingReport.employee_id)}</div>
+                  <div className="text-xs text-muted-foreground">Units Sold</div>
+                  <div className="font-medium mt-1">{viewingReport.total_units_sold || 0}</div>
                 </div>
                 <div className="p-3 border rounded-lg bg-primary/5">
-                  <div className="text-xs text-muted-foreground">Cash Recollected</div>
-                  <div className="font-bold text-lg text-primary">${(viewingReport.total_cash_removed || 0).toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground">Cash Collected</div>
+                  <div className="font-bold text-lg text-primary">${(viewingReport.total_cash_collected || 0).toFixed(2)}</div>
                 </div>
                 <div className="p-3 border rounded-lg">
-                  <div className="text-xs text-muted-foreground">Rent Calculated</div>
-                  <div className="font-medium mt-1">${(viewingReport.rent_calculated || 0).toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground">Issues Reported</div>
+                  <div className="font-medium mt-1">{viewingReport.total_issues_reported || 0}</div>
                 </div>
               </div>
 
@@ -845,38 +848,21 @@ export default function VisitReports() {
               )}
 
               {/* Machine Issues */}
-              {viewingReport.is_jammed && (
+              {(viewingReport.total_issues_reported || 0) > 0 && (
                 <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/20">
                   <div className="flex items-center gap-2 text-destructive font-semibold">
                     <AlertCircle className="h-4 w-4" />
-                    Machine Issue Reported
+                    {viewingReport.total_issues_reported} Issue(s) Reported
                   </div>
-                  {viewingReport.jam_status && (
-                    <div className="text-sm mt-2">{viewingReport.jam_status}</div>
-                  )}
                 </div>
               )}
 
               {/* Notes Section */}
               <div className="space-y-3">
-                {viewingReport.coin_box_notes && (
-                  <div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Coin Box Notes</div>
-                    <div className="p-3 bg-muted/30 rounded-lg text-sm">{viewingReport.coin_box_notes}</div>
-                  </div>
-                )}
-
                 {viewingReport.observation_text && (
                   <div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Observations</div>
                     <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm">{viewingReport.observation_text}</div>
-                  </div>
-                )}
-
-                {viewingReport.access_notes && (
-                  <div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Access Notes</div>
-                    <div className="p-3 bg-muted/30 rounded-lg text-sm">{viewingReport.access_notes}</div>
                   </div>
                 )}
 
@@ -889,11 +875,11 @@ export default function VisitReports() {
               </div>
 
               {/* Photo */}
-              {viewingReport.photo_url && (
+              {viewingReport.image_url && (
                 <div>
                   <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Photo</div>
                   <img 
-                    src={viewingReport.photo_url} 
+                    src={viewingReport.image_url} 
                     alt="Visit photo" 
                     className="rounded-lg max-w-full h-auto border"
                   />

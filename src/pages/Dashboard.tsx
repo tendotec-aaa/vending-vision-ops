@@ -51,12 +51,12 @@ export default function Dashboard() {
         .eq('company_id', profile.company_id)
         .gte('visit_date', sevenDaysAgo.toISOString());
 
-      // Fetch jammed machines count
+      // Fetch issues count (reports with issues reported)
       const { count: pendingIssues } = await supabase
         .from('visit_reports')
         .select('*', { count: 'exact', head: true })
         .eq('company_id', profile.company_id)
-        .eq('is_jammed', true)
+        .gt('total_issues_reported', 0)
         .order('visit_date', { ascending: false })
         .limit(50);
 

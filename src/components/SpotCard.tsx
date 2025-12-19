@@ -118,9 +118,10 @@ export function SpotCard({
     ? ((Number(spot.spot_total_sales) / operationalDays) * 30)
     : null;
 
-  // Calculate total rent: (monthly rent / 30) × days active
+  // Calculate total rent: (monthly rent * 12 / 365) × days active
+  const dailyRentRate = rentPerSpot ? (rentPerSpot * 12) / 365 : 0;
   const totalRent = rentPerSpot && operationalDays && operationalDays > 0
-    ? (rentPerSpot / 30) * operationalDays
+    ? dailyRentRate * operationalDays
     : 0;
   const totalSales = spot.spot_total_sales || 0;
   const profit = Number(totalSales) - totalRent;
