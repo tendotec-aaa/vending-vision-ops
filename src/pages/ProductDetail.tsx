@@ -130,10 +130,10 @@ export default function ProductDetail() {
 
   // Fetch toy movements history for this product from the ledger
   const { data: toyMovements } = useQuery({
-    queryKey: ["toy_movements", id],
+    queryKey: ["machine_toy_movements", id],
     queryFn: async () => {
       const { data } = await supabase
-        .from("toy_movements")
+        .from("machine_toy_movements")
         .select(`
           *,
           visit_reports(time_in, location_id, locations!visit_reports_location_id_fkey(name)),
