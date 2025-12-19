@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 
 interface ToySlotAudit {
+  slot_id: string | null;
   toy_id: string;
   toy_name: string;
   slot_number: number;
@@ -61,6 +62,7 @@ interface ToySlotAudit {
   is_replacing_toy: boolean;
   replacement_toy_id: string | null;
   removed_for_replacement: number;
+  surplus_shortage: number;
 }
 
 interface MachineAudit {
@@ -382,6 +384,7 @@ export default function NewVisitReport() {
         
         const existingCapacity = (existingSlot as any)?.toy_capacity ?? 20;
         return {
+          slot_id: existingSlot?.id || null,
           toy_id: existingSlot?.product_id || '',
           toy_name: product?.product_name || '',
           slot_number: i + 1,
@@ -401,6 +404,7 @@ export default function NewVisitReport() {
           is_replacing_toy: false,
           replacement_toy_id: null,
           removed_for_replacement: 0,
+          surplus_shortage: 0,
         };
       });
 
@@ -493,6 +497,79 @@ export default function NewVisitReport() {
     }
   };
 
+  // Generate detailed text summary for visit_summary column
+  const generateDetailedSummary = (
+    locationName: string,
+    spotName: string,
+    techName: string,
+    visitDateStr: string,
+    totals: {
+      totalSold: number;
+      totalRefilled: number;
+      totalRemoved: number;
+      totalDiscrepancy: number;
+      totalIssues: number;
+      totalCurrentStock: number;
+      totalCapacity: number;
+    },
+    cashCollected: number,
+    rentExpense: number,
+    machineData: MachineAudit[]
+  ): string => {
+    const lines: string[] = [];
+    
+    // Header
+    lines.push(`=== VISIT REPORT ===`);
+    lines.push(`Date: ${format(new Date(visitDateStr), 'PPP')}`);
+    lines.push(`Location: ${locationName}`);
+    lines.push(`Spot: ${spotName}`);
+    lines.push(`Technician: ${techName}`);
+    lines.push(``);
+    
+    // Performance Block
+    lines.push(`--- PERFORMANCE SUMMARY ---`);
+    lines.push(`Units Sold: ${totals.totalSold}`);
+    lines.push(`Units Refilled: ${totals.totalRefilled}`);
+    lines.push(`Units Removed: ${totals.totalRemoved}`);
+    lines.push(`Surplus/Shortage: ${totals.totalDiscrepancy > 0 ? '+' : ''}${totals.totalDiscrepancy}`);
+    lines.push(`Total Cash Collected: $${cashCollected.toFixed(2)}`);
+    lines.push(`Rent Expense: $${rentExpense.toFixed(2)}`);
+    lines.push(``);
+    
+    // Capacity Line
+    lines.push(`--- CAPACITY STATUS ---`);
+    lines.push(`Total Stock: ${totals.totalCurrentStock} / ${totals.totalCapacity} (${totals.totalCapacity > 0 ? Math.round((totals.totalCurrentStock / totals.totalCapacity) * 100) : 0}%)`);
+    lines.push(``);
+    
+    // Breakdown by machine/slot
+    lines.push(`--- SLOT DETAILS ---`);
+    machineData.forEach(machine => {
+      lines.push(`Machine: ${machine.serial_number}`);
+      machine.slots.forEach(slot => {
+        if (slot.toy_id || slot.replacement_toy_id) {
+          const stockInfo = `${slot.calculated_stock}/${slot.toy_capacity}`;
+          const toyName = slot.is_replacing_toy 
+            ? `${slot.toy_name} → NEW TOY` 
+            : slot.toy_name;
+          lines.push(`  Slot ${slot.slot_number}: ${toyName} [${stockInfo}] Sold:${slot.units_sold} Refill:${slot.units_refilled}`);
+          if (slot.has_issue) {
+            lines.push(`    ⚠️ Issue: ${slot.issue_description} (${slot.issue_severity})`);
+          }
+        }
+      });
+    });
+    
+    // Notes
+    if (generalNotes || observation) {
+      lines.push(``);
+      lines.push(`--- NOTES ---`);
+      if (generalNotes) lines.push(`General: ${generalNotes}`);
+      if (observation) lines.push(`Observation: ${observation}`);
+    }
+    
+    return lines.join('\n');
+  };
+
   const handleSubmit = async () => {
     if (!selectedLocation) {
       toast.error('Please select a location');
@@ -525,38 +602,79 @@ export default function NewVisitReport() {
         photoUrl = await uploadPhoto();
       }
 
-      // Build the slot_performance_snapshot JSONB array with product_name
+      // Calculate totals
+      let totalSold = 0;
+      let totalRefilled = 0;
+      let totalRemoved = 0;
+      let totalDiscrepancy = 0;
+      let totalIssues = 0;
+      let totalCurrentStock = 0;
+      let totalCapacity = 0;
+
+      machineAudits.forEach(machine => {
+        machine.slots.forEach(slot => {
+          if (slot.toy_id || slot.replacement_toy_id) {
+            totalSold += slot.units_sold;
+            totalRefilled += slot.units_refilled;
+            totalRemoved += slot.units_removed + slot.removed_for_replacement;
+            totalDiscrepancy += slot.discrepancy;
+            if (slot.has_issue) totalIssues++;
+            totalCurrentStock += slot.is_replacing_toy ? slot.units_refilled : slot.calculated_stock;
+            totalCapacity += slot.toy_capacity;
+          }
+        });
+      });
+
+      // Calculate rent expense: ((Monthly Rent / spots) / 30) * Days Since Last Visit
+      // If installation, rent = 0
+      let rentExpenseCalculated = 0;
+      const spots = locationSpots?.filter(s => s.location_id === selectedLocation).length || 1;
+      const rentPerSpot = Number(selectedLocationData?.rent_amount || 0) / spots;
+      const spotRentMonthly = rentPerSpot;
+      const spotRentDaily = spotRentMonthly / 30;
+      
+      if (visitType !== 'installation' && daysSinceLastVisit !== null) {
+        rentExpenseCalculated = spotRentDaily * daysSinceLastVisit;
+      }
+
+      // Build the slot_performance_snapshot JSONB array with all snapshot fields
       const slotPerformanceSnapshot: any[] = [];
       const issuesForWorkOrders: { machine_serial: string; slot_number: number; description: string; severity: string }[] = [];
       
       machineAudits.forEach(machine => {
         machine.slots.forEach(slot => {
-          const existingSlot = machineSlots?.find(
-            ms => ms.machine_id === machine.machine_id && ms.slot_number === slot.slot_number
-          );
-          
           if (slot.toy_id || slot.replacement_toy_id) {
             const productId = slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id;
             const product = products?.find(p => p.id === productId);
             const originalProduct = products?.find(p => p.id === slot.toy_id);
+            const replacementProduct = slot.replacement_toy_id ? products?.find(p => p.id === slot.replacement_toy_id) : null;
             
-            // For replacement: new toy's current_stock = units_refilled (what was put in)
+            // For replacement: new toy's current_stock = units_refilled
             // For non-replacement: current_stock = calculated_stock
             const currentStockValue = slot.is_replacing_toy ? slot.units_refilled : slot.calculated_stock;
             
-            // For replacement: calculate surplus/shortage for old toy
+            // Calculate surplus/shortage for old toy during replacement
             const oldToySurplusShortage = slot.is_replacing_toy 
               ? slot.removed_for_replacement - (slot.last_stock - slot.units_sold) 
-              : 0;
+              : slot.discrepancy;
             
             slotPerformanceSnapshot.push({
-              slot_id: existingSlot?.id || null,
+              // IDs
+              slot_id: slot.slot_id,
               machine_id: machine.machine_id,
+              machine_toy_slot_id: slot.slot_id,
               slot_number: slot.slot_number,
               product_id: productId,
-              product_name: product?.product_name || slot.toy_name || 'Unknown',
               original_product_id: slot.is_replacing_toy ? slot.toy_id : null,
+              replacement_product_id: slot.is_replacing_toy ? slot.replacement_toy_id : null,
+              // Snapshots
+              product_name: product?.product_name || slot.toy_name || 'Unknown',
               original_product_name: slot.is_replacing_toy ? (originalProduct?.product_name || slot.toy_name) : null,
+              replacement_toy_name: replacementProduct?.product_name || null,
+              machine_serial_snapshot: machine.serial_number,
+              slot_position_snapshot: `Slot ${slot.slot_number}`,
+              unit_price_snapshot: 1.00,
+              // Inventory
               toy_capacity: slot.toy_capacity,
               original_toy_capacity: slot.original_toy_capacity,
               last_stock: slot.last_stock,
@@ -564,16 +682,22 @@ export default function NewVisitReport() {
               units_sold: slot.units_sold,
               units_refilled: slot.units_refilled,
               units_removed: slot.units_removed,
+              units_audited: slot.audited_count,
+              units_shortage_surplus: oldToySurplusShortage,
+              // Logic fields
+              visit_type: visitType,
+              jam_type: slot.jam_type,
+              has_issue: slot.has_issue,
+              reported_issue: slot.has_issue ? slot.issue_description : null,
+              issue_severity: slot.has_issue ? slot.issue_severity : null,
+              is_being_replaced: slot.is_replacing_toy,
+              removed_for_replacement: slot.removed_for_replacement,
+              // Deprecated but kept for backward compatibility
               audited_count: slot.audited_count,
               discrepancy: slot.discrepancy,
-              surplus_shortage: oldToySurplusShortage,
-              has_issue: slot.has_issue,
               issue_description: slot.has_issue ? slot.issue_description : null,
-              issue_severity: slot.has_issue ? slot.issue_severity : null,
-              jam_type: slot.jam_type,
               is_replacing_toy: slot.is_replacing_toy,
-              replacement_product_id: slot.is_replacing_toy ? slot.replacement_toy_id : null,
-              removed_for_replacement: slot.removed_for_replacement,
+              surplus_shortage: oldToySurplusShortage,
             });
             
             // Collect issues for work orders
@@ -589,7 +713,19 @@ export default function NewVisitReport() {
         });
       });
 
-      // Create visit report with JSONB snapshot (triggers handle inventory updates)
+      // Generate text summary
+      const visitSummary = generateDetailedSummary(
+        selectedLocationData?.name || 'Unknown',
+        selectedSpotData?.place_name || `Spot #${selectedSpotData?.spot_number}`,
+        `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Unknown',
+        visitDate,
+        { totalSold, totalRefilled, totalRemoved, totalDiscrepancy, totalIssues, totalCurrentStock, totalCapacity },
+        totalCashRecollected,
+        rentExpenseCalculated,
+        machineAudits
+      );
+
+      // Create visit report with all new fields
       const { data: report, error: reportError } = await supabase
         .from('visit_reports')
         .insert({
@@ -608,6 +744,16 @@ export default function NewVisitReport() {
           total_cash_removed: totalCashRecollected,
           is_signed: isSigned,
           slot_performance_snapshot: slotPerformanceSnapshot.length > 0 ? slotPerformanceSnapshot : null,
+          // New fields
+          visit_summary: visitSummary,
+          total_current_stock: totalCurrentStock,
+          total_toy_capacity: totalCapacity,
+          last_visit_id: lastVisitReport?.id || null,
+          last_visit_date_snapshot: selectedSpotData?.spot_last_visit_report || null,
+          days_since_last_visit: daysSinceLastVisit,
+          spot_rent_monthly_snapshot: spotRentMonthly,
+          spot_rent_daily_snapshot: spotRentDaily,
+          rent_expense_calculated: rentExpenseCalculated,
         })
         .select()
         .single();
@@ -638,7 +784,7 @@ export default function NewVisitReport() {
         });
       }
 
-      // Insert stock records for backward compatibility
+      // Insert stock records with enhanced snapshot fields
       const stockRecords: any[] = [];
 
       machineAudits.forEach(machine => {
@@ -646,27 +792,52 @@ export default function NewVisitReport() {
           if (slot.toy_id || slot.replacement_toy_id) {
             const productId = slot.is_replacing_toy ? slot.replacement_toy_id : slot.toy_id;
             const product = products?.find(p => p.id === productId);
+            const replacementProduct = slot.replacement_toy_id ? products?.find(p => p.id === slot.replacement_toy_id) : null;
+            const currentStockValue = slot.is_replacing_toy ? slot.units_refilled : slot.calculated_stock;
+            const surplusShortage = slot.is_replacing_toy 
+              ? slot.removed_for_replacement - (slot.last_stock - slot.units_sold) 
+              : slot.discrepancy;
+
             stockRecords.push({
               visit_report_id: report.id,
+              // IDs
+              machine_toy_slot_id: slot.slot_id,
               product_id: productId,
-              product_name: product?.product_name || slot.toy_name || 'Unknown',
               toy_id: productId,
               machine_id: machine.machine_id,
               slot_number: slot.slot_number,
+              location_spot_id: selectedSpot,
+              // Snapshots
+              product_name: product?.product_name || slot.toy_name || 'Unknown',
+              toy_name_snapshot: product?.product_name || slot.toy_name || 'Unknown',
+              machine_serial_snapshot: machine.serial_number,
+              location_name_snapshot: selectedLocationData?.name || 'Unknown',
+              location_spot_name_snapshot: selectedSpotData?.place_name || `Spot #${selectedSpotData?.spot_number}`,
+              slot_position_snapshot: `Slot ${slot.slot_number}`,
+              unit_price_snapshot: 1.00,
+              replacement_toy_name: replacementProduct?.product_name || null,
+              // Inventory
               last_stock: slot.last_stock,
-              current_stock: slot.calculated_stock,
+              current_stock: currentStockValue,
               units_sold: slot.units_sold,
               units_refilled: slot.units_refilled,
               units_removed: slot.units_removed,
-              audited_count: slot.audited_count,
-              discrepancy: slot.discrepancy,
-              has_issue: slot.has_issue,
-              issue_description: slot.has_issue ? slot.issue_description : null,
-              issue_severity: slot.has_issue ? slot.issue_severity : null,
+              units_audited: slot.audited_count,
+              units_shortage_surplus: surplusShortage,
+              // Logic
+              visit_type: visitType,
               jam_type: slot.jam_type,
-              is_replacing_toy: slot.is_replacing_toy,
+              has_issue: slot.has_issue,
+              reported_issue: slot.has_issue ? slot.issue_description : null,
+              issue_severity: slot.has_issue ? slot.issue_severity : null,
+              is_being_replaced: slot.is_replacing_toy,
               replacement_toy_id: slot.is_replacing_toy ? slot.replacement_toy_id : null,
               removed_for_replacement: slot.removed_for_replacement,
+              // Deprecated but kept for backward compat
+              audited_count: slot.audited_count,
+              discrepancy: slot.discrepancy,
+              issue_description: slot.has_issue ? slot.issue_description : null,
+              is_replacing_toy: slot.is_replacing_toy,
             });
           }
         });
