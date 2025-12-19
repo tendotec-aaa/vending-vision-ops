@@ -1218,7 +1218,7 @@ export default function NewVisitReport() {
                                 />
                               </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                               <div className="space-y-1">
                                 <Label className="text-xs">Units Refilled</Label>
                                 <Input
@@ -1228,6 +1228,17 @@ export default function NewVisitReport() {
                                   onChange={(e) => updateSlotField(machineIndex, slotIndex, 'units_refilled', parseInt(e.target.value) || 0)}
                                   className="h-8"
                                   placeholder="0"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Price/Unit ($)</Label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.25"
+                                  value={slot.price_per_unit}
+                                  onChange={(e) => updateSlotField(machineIndex, slotIndex, 'price_per_unit', parseFloat(e.target.value) || 1.00)}
+                                  className="h-8"
                                 />
                               </div>
                               <div className="space-y-1">
