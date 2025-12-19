@@ -79,8 +79,6 @@ interface DraftData {
   selectedSpot: string;
   visitType: string;
   visitDate: string;
-  accessNotes: string;
-  coinBoxNotes: string;
   hasObservation: boolean;
   observation: string;
   generalNotes: string;
@@ -100,8 +98,6 @@ export default function NewVisitReport() {
   const [visitType, setVisitType] = useState('routine');
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split('T')[0]);
   const [timeIn] = useState(new Date().toISOString());
-  const [accessNotes, setAccessNotes] = useState('');
-  const [coinBoxNotes, setCoinBoxNotes] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [hasObservation, setHasObservation] = useState(false);
@@ -121,8 +117,6 @@ export default function NewVisitReport() {
       selectedSpot,
       visitType,
       visitDate,
-      accessNotes,
-      coinBoxNotes,
       hasObservation,
       observation,
       generalNotes,
@@ -142,8 +136,6 @@ export default function NewVisitReport() {
         setSelectedSpot(draft.selectedSpot || '');
         setVisitType(draft.visitType || 'routine');
         setVisitDate(draft.visitDate || new Date().toISOString().split('T')[0]);
-        setAccessNotes(draft.accessNotes || '');
-        setCoinBoxNotes(draft.coinBoxNotes || '');
         setHasObservation(draft.hasObservation || false);
         setObservation(draft.observation || '');
         setGeneralNotes(draft.generalNotes || '');
@@ -178,12 +170,12 @@ export default function NewVisitReport() {
   useEffect(() => {
     if (!draftLoaded) return;
     const timeoutId = setTimeout(() => {
-      if (selectedLocation || selectedSpot || accessNotes || coinBoxNotes || observation || generalNotes || machineAudits.length > 0) {
+      if (selectedLocation || selectedSpot || observation || generalNotes || machineAudits.length > 0) {
         saveDraft();
       }
     }, 1000);
     return () => clearTimeout(timeoutId);
-  }, [selectedLocation, selectedSpot, visitType, visitDate, accessNotes, coinBoxNotes, hasObservation, observation, generalNotes, machineAudits, draftLoaded]);
+  }, [selectedLocation, selectedSpot, visitType, visitDate, hasObservation, observation, generalNotes, machineAudits, draftLoaded]);
 
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
@@ -553,10 +545,29 @@ export default function NewVisitReport() {
           const toyName = slot.is_replacing_toy 
             ? `${slot.toy_name} → NEW TOY` 
             : slot.toy_name;
-          lines.push(`  Slot ${slot.slot_number}: ${toyName} [${stockInfo}] Sold:${slot.units_sold} Refill:${slot.units_refilled}`);
-          if (slot.has_issue) {
-            lines.push(`    ⚠️ Issue: ${slot.issue_description} (${slot.issue_severity})`);
+          
+          // Build slot line with jam info
+          let slotLine = `  Slot ${slot.slot_number}: ${toyName} [${stockInfo}] Sold:${slot.units_sold} Refill:${slot.units_refilled}`;
+          
+          // Add jam info if present
+          if (slot.jam_type) {
+            const jamLabel = slot.jam_type === 'jammed_with_coins' 
+              ? '(Jammed With Coins +1)' 
+              : slot.jam_type === 'jammed_without_coins' 
+                ? '(Jammed Without Coins)'
+                : `(${slot.jam_type.replace(/_/g, ' ')})`;
+            slotLine += ` ${jamLabel}`;
           }
+          
+          // Add issue info on same line
+          if (slot.has_issue && slot.issue_description) {
+            const severityLabel = slot.issue_severity === 'low' ? 'Low' 
+              : slot.issue_severity === 'medium' ? 'Med' 
+              : slot.issue_severity === 'high' ? 'High' : slot.issue_severity;
+            slotLine += ` #${slot.issue_description} SL: ${severityLabel}`;
+          }
+          
+          lines.push(slotLine);
         }
       });
     });
@@ -734,28 +745,27 @@ export default function NewVisitReport() {
           company_id: profile?.company_id!,
           location_id: selectedLocation,
           spot_id: selectedSpot,
+          setup_id: selectedSpotData?.setup_id || null,
           employee_id: user!.id,
+          employee_name_snapshot: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Unknown',
+          location_name_snapshot: selectedLocationData?.name || 'Unknown',
+          spot_name_snapshot: selectedSpotData?.place_name || `Spot #${selectedSpotData?.spot_number}`,
+          visit_date: new Date(visitDate).toISOString(),
           visit_type: visitType,
-          time_in: new Date(visitDate).toISOString(),
-          access_notes: accessNotes || null,
-          coin_box_notes: coinBoxNotes || null,
-          photo_url: photoUrl,
-          has_observation: hasObservation,
-          observation_text: hasObservation ? observation : null,
-          general_notes: generalNotes || null,
-          total_cash_removed: totalCashRecollected,
-          is_signed: isSigned,
-          slot_performance_snapshot: slotPerformanceSnapshot.length > 0 ? slotPerformanceSnapshot : null,
-          // New fields
           visit_summary: visitSummary,
+          total_cash_collected: totalCashRecollected,
+          total_units_sold: totalSold,
+          total_units_refilled: totalRefilled,
+          total_units_removed: totalRemoved,
+          total_units_surplus_shortage: totalDiscrepancy,
           total_current_stock: totalCurrentStock,
           total_toy_capacity: totalCapacity,
-          last_visit_id: lastVisitReport?.id || null,
-          last_visit_date_snapshot: selectedSpotData?.spot_last_visit_report || null,
-          days_since_last_visit: daysSinceLastVisit,
-          spot_rent_monthly_snapshot: spotRentMonthly,
-          spot_rent_daily_snapshot: spotRentDaily,
-          rent_expense_calculated: rentExpenseCalculated,
+          total_issues_reported: totalIssues,
+          image_url: photoUrl,
+          general_notes: generalNotes || null,
+          observation_text: hasObservation ? observation : null,
+          is_signed: isSigned,
+          slot_performance_snapshot: slotPerformanceSnapshot.length > 0 ? slotPerformanceSnapshot : null,
         })
         .select()
         .single();
@@ -1044,12 +1054,12 @@ export default function NewVisitReport() {
               </div>
 
               {/* Last Visit Photo */}
-              {lastVisitReport?.photo_url && (
+              {lastVisitReport?.image_url && (
                 <div className="mt-4 p-3 bg-background rounded-lg">
                   <div className="text-sm font-medium mb-2">Last Service Photo</div>
                   <div className="w-full max-w-[200px] mx-auto aspect-video overflow-hidden rounded-lg">
                     <img 
-                      src={lastVisitReport.photo_url} 
+                      src={lastVisitReport.image_url} 
                       alt="Last visit" 
                       className="w-full h-full object-cover"
                     />
@@ -1107,26 +1117,6 @@ export default function NewVisitReport() {
                   Cannot be before last visit: {format(new Date(selectedSpotData.spot_last_visit_report), 'MMM d, yyyy')}
                 </p>
               )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="accessNotes">Access Notes</Label>
-              <Input
-                id="accessNotes"
-                placeholder="e.g., Had to wait for security, key under mat..."
-                value={accessNotes}
-                onChange={(e) => setAccessNotes(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="coinBoxNotes">Coin Box Notes</Label>
-              <Input
-                id="coinBoxNotes"
-                placeholder="Condition of coin box, any issues..."
-                value={coinBoxNotes}
-                onChange={(e) => setCoinBoxNotes(e.target.value)}
-              />
             </div>
 
             <div className="p-3 bg-primary/10 rounded-lg">

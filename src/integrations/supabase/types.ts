@@ -1142,100 +1142,85 @@ export type Database = {
       }
       visit_reports: {
         Row: {
-          access_notes: string | null
-          coin_box_notes: string | null
           company_id: string
           created_at: string
-          days_since_last_visit: number | null
           employee_id: string | null
+          employee_name_snapshot: string | null
           general_notes: string | null
-          has_observation: boolean | null
           id: string
-          is_jammed: boolean | null
+          image_url: string | null
           is_signed: boolean | null
-          jam_status: string | null
-          last_visit_date_snapshot: string | null
-          last_visit_id: string | null
           location_id: string
+          location_name_snapshot: string | null
           observation_text: string | null
-          photo_url: string | null
-          rent_calculated: number | null
-          rent_expense_calculated: number | null
+          setup_id: string | null
           slot_performance_snapshot: Json | null
           spot_id: string | null
-          spot_rent_daily_snapshot: number | null
-          spot_rent_monthly_snapshot: number | null
-          time_in: string | null
-          time_out: string | null
-          total_cash_removed: number | null
+          spot_name_snapshot: string | null
+          total_cash_collected: number | null
           total_current_stock: number | null
+          total_issues_reported: number | null
           total_toy_capacity: number | null
+          total_units_refilled: number | null
+          total_units_removed: number | null
+          total_units_sold: number | null
+          total_units_surplus_shortage: number | null
           visit_date: string
           visit_summary: string | null
           visit_type: string | null
         }
         Insert: {
-          access_notes?: string | null
-          coin_box_notes?: string | null
           company_id: string
           created_at?: string
-          days_since_last_visit?: number | null
           employee_id?: string | null
+          employee_name_snapshot?: string | null
           general_notes?: string | null
-          has_observation?: boolean | null
           id?: string
-          is_jammed?: boolean | null
+          image_url?: string | null
           is_signed?: boolean | null
-          jam_status?: string | null
-          last_visit_date_snapshot?: string | null
-          last_visit_id?: string | null
           location_id: string
+          location_name_snapshot?: string | null
           observation_text?: string | null
-          photo_url?: string | null
-          rent_calculated?: number | null
-          rent_expense_calculated?: number | null
+          setup_id?: string | null
           slot_performance_snapshot?: Json | null
           spot_id?: string | null
-          spot_rent_daily_snapshot?: number | null
-          spot_rent_monthly_snapshot?: number | null
-          time_in?: string | null
-          time_out?: string | null
-          total_cash_removed?: number | null
+          spot_name_snapshot?: string | null
+          total_cash_collected?: number | null
           total_current_stock?: number | null
+          total_issues_reported?: number | null
           total_toy_capacity?: number | null
+          total_units_refilled?: number | null
+          total_units_removed?: number | null
+          total_units_sold?: number | null
+          total_units_surplus_shortage?: number | null
           visit_date?: string
           visit_summary?: string | null
           visit_type?: string | null
         }
         Update: {
-          access_notes?: string | null
-          coin_box_notes?: string | null
           company_id?: string
           created_at?: string
-          days_since_last_visit?: number | null
           employee_id?: string | null
+          employee_name_snapshot?: string | null
           general_notes?: string | null
-          has_observation?: boolean | null
           id?: string
-          is_jammed?: boolean | null
+          image_url?: string | null
           is_signed?: boolean | null
-          jam_status?: string | null
-          last_visit_date_snapshot?: string | null
-          last_visit_id?: string | null
           location_id?: string
+          location_name_snapshot?: string | null
           observation_text?: string | null
-          photo_url?: string | null
-          rent_calculated?: number | null
-          rent_expense_calculated?: number | null
+          setup_id?: string | null
           slot_performance_snapshot?: Json | null
           spot_id?: string | null
-          spot_rent_daily_snapshot?: number | null
-          spot_rent_monthly_snapshot?: number | null
-          time_in?: string | null
-          time_out?: string | null
-          total_cash_removed?: number | null
+          spot_name_snapshot?: string | null
+          total_cash_collected?: number | null
           total_current_stock?: number | null
+          total_issues_reported?: number | null
           total_toy_capacity?: number | null
+          total_units_refilled?: number | null
+          total_units_removed?: number | null
+          total_units_sold?: number | null
+          total_units_surplus_shortage?: number | null
           visit_date?: string
           visit_summary?: string | null
           visit_type?: string | null
@@ -1253,6 +1238,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_reports_setup_id_fkey"
+            columns: ["setup_id"]
+            isOneToOne: false
+            referencedRelation: "setups"
             referencedColumns: ["id"]
           },
           {
