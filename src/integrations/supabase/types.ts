@@ -269,150 +269,93 @@ export type Database = {
       }
       machine_toy_movements: {
         Row: {
-          audited_amount: number | null
           company_id: string
-          company_name: string | null
           created_at: string
-          current_stock: number | null
+          employee_id: string | null
+          employee_name_snapshot: string | null
           id: string
-          is_replaced: boolean | null
-          jam_amount: number | null
-          jam_type: string | null
-          last_stock: number | null
           location_id: string | null
-          location_name: string | null
-          location_spot_name_snapshot: string | null
-          machine_id: string | null
+          location_name_snapshot: string | null
+          machine_toy_slot_id: string | null
           movement_date: string | null
           movement_description: string | null
           movement_type: string
-          notes: string | null
-          product_id: string | null
-          product_name: string | null
           quantity: number
-          refill_amount: number | null
-          removal_amount: number | null
-          replacement_product_id: string | null
-          replacement_product_name: string | null
-          sale_amount: number | null
-          slot_number: number | null
+          setup_id: string | null
           spot_id: string | null
-          spot_name: string | null
-          surplus_shortage_amount: number | null
-          toy_capacity: number | null
-          toy_id: string | null
+          spot_name_snapshot: string | null
           toy_name_snapshot: string | null
-          user_id: string | null
-          visit_report_date: string | null
           visit_report_id: string
         }
         Insert: {
-          audited_amount?: number | null
           company_id: string
-          company_name?: string | null
           created_at?: string
-          current_stock?: number | null
+          employee_id?: string | null
+          employee_name_snapshot?: string | null
           id?: string
-          is_replaced?: boolean | null
-          jam_amount?: number | null
-          jam_type?: string | null
-          last_stock?: number | null
           location_id?: string | null
-          location_name?: string | null
-          location_spot_name_snapshot?: string | null
-          machine_id?: string | null
+          location_name_snapshot?: string | null
+          machine_toy_slot_id?: string | null
           movement_date?: string | null
           movement_description?: string | null
           movement_type: string
-          notes?: string | null
-          product_id?: string | null
-          product_name?: string | null
           quantity?: number
-          refill_amount?: number | null
-          removal_amount?: number | null
-          replacement_product_id?: string | null
-          replacement_product_name?: string | null
-          sale_amount?: number | null
-          slot_number?: number | null
+          setup_id?: string | null
           spot_id?: string | null
-          spot_name?: string | null
-          surplus_shortage_amount?: number | null
-          toy_capacity?: number | null
-          toy_id?: string | null
+          spot_name_snapshot?: string | null
           toy_name_snapshot?: string | null
-          user_id?: string | null
-          visit_report_date?: string | null
           visit_report_id: string
         }
         Update: {
-          audited_amount?: number | null
           company_id?: string
-          company_name?: string | null
           created_at?: string
-          current_stock?: number | null
+          employee_id?: string | null
+          employee_name_snapshot?: string | null
           id?: string
-          is_replaced?: boolean | null
-          jam_amount?: number | null
-          jam_type?: string | null
-          last_stock?: number | null
           location_id?: string | null
-          location_name?: string | null
-          location_spot_name_snapshot?: string | null
-          machine_id?: string | null
+          location_name_snapshot?: string | null
+          machine_toy_slot_id?: string | null
           movement_date?: string | null
           movement_description?: string | null
           movement_type?: string
-          notes?: string | null
-          product_id?: string | null
-          product_name?: string | null
           quantity?: number
-          refill_amount?: number | null
-          removal_amount?: number | null
-          replacement_product_id?: string | null
-          replacement_product_name?: string | null
-          sale_amount?: number | null
-          slot_number?: number | null
+          setup_id?: string | null
           spot_id?: string | null
-          spot_name?: string | null
-          surplus_shortage_amount?: number | null
-          toy_capacity?: number | null
-          toy_id?: string | null
+          spot_name_snapshot?: string | null
           toy_name_snapshot?: string | null
-          user_id?: string | null
-          visit_report_date?: string | null
           visit_report_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "machine_toy_movements_toy_id_fkey"
-            columns: ["toy_id"]
+            foreignKeyName: "machine_toy_movements_location_id_fkey"
+            columns: ["location_id"]
             isOneToOne: false
-            referencedRelation: "toys"
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "toy_movements_machine_id_fkey"
-            columns: ["machine_id"]
+            foreignKeyName: "machine_toy_movements_machine_toy_slot_id_fkey"
+            columns: ["machine_toy_slot_id"]
             isOneToOne: false
-            referencedRelation: "machines"
+            referencedRelation: "machine_toy_slots"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "toy_movements_product_id_fkey"
-            columns: ["product_id"]
+            foreignKeyName: "machine_toy_movements_setup_id_fkey"
+            columns: ["setup_id"]
             isOneToOne: false
-            referencedRelation: "products"
+            referencedRelation: "setups"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "toy_movements_spot_id_fkey"
+            foreignKeyName: "machine_toy_movements_spot_id_fkey"
             columns: ["spot_id"]
             isOneToOne: false
             referencedRelation: "location_spots"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "toy_movements_visit_report_id_fkey"
+            foreignKeyName: "machine_toy_movements_visit_report_id_fkey"
             columns: ["visit_report_id"]
             isOneToOne: false
             referencedRelation: "visit_reports"

@@ -129,17 +129,24 @@ export default function ProductDetail() {
   }, [product]);
 
   // Fetch toy movements history for this product from the ledger
+  // Link through machine_toy_slots to find movements for this product
   const { data: toyMovements } = useQuery({
     queryKey: ["machine_toy_movements", id],
     queryFn: async () => {
+      // First get slot IDs for this product
+      const { data: slots } = await supabase
+        .from("machine_toy_slots")
+        .select("id")
+        .eq("product_id", id);
+      
+      if (!slots || slots.length === 0) return [];
+      
+      const slotIds = slots.map(s => s.id);
+      
       const { data } = await supabase
         .from("machine_toy_movements")
-        .select(`
-          *,
-          visit_reports(time_in, location_id, locations!visit_reports_location_id_fkey(name)),
-          location_spots(spot_number, place_name)
-        `)
-        .eq("product_id", id)
+        .select("*")
+        .in("machine_toy_slot_id", slotIds)
         .order("created_at", { ascending: false })
         .limit(100);
       return data || [];
@@ -360,23 +367,16 @@ export default function ProductDetail() {
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                                {record.visit_reports?.time_in 
-                                  ? format(new Date(record.visit_reports.time_in), "MMM d, yyyy")
+                                {record.movement_date 
+                                  ? format(new Date(record.movement_date), "MMM d, yyyy")
                                   : record.created_at 
                                     ? format(new Date(record.created_at), "MMM d, yyyy")
                                     : "-"}
                               </div>
                             </TableCell>
-                            <TableCell>{record.visit_reports?.locations?.name || "-"}</TableCell>
+                            <TableCell>{record.location_name_snapshot || "-"}</TableCell>
                             <TableCell>
-                              {record.location_spots ? (
-                                <span className="text-sm">
-                                  #{record.location_spots.spot_number}
-                                  {record.location_spots.place_name && ` (${record.location_spots.place_name})`}
-                                </span>
-                              ) : record.slot_number ? (
-                                <span className="text-sm">Slot {record.slot_number}</span>
-                              ) : "-"}
+                              {record.spot_name_snapshot || "-"}
                             </TableCell>
                             <TableCell>
                               <span className={`flex items-center gap-1 ${style.color}`}>
@@ -388,7 +388,7 @@ export default function ProductDetail() {
                               {record.quantity > 0 ? '+' : ''}{record.quantity}
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
-                              {record.notes || "-"}
+                              {record.movement_description || "-"}
                             </TableCell>
                           </TableRow>
                         );
