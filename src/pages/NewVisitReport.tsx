@@ -63,6 +63,7 @@ interface ToySlotAudit {
   replacement_toy_id: string | null;
   removed_for_replacement: number;
   surplus_shortage: number;
+  price_per_unit: number;
 }
 
 interface MachineAudit {
@@ -405,6 +406,7 @@ export default function NewVisitReport() {
           replacement_toy_id: null,
           removed_for_replacement: 0,
           surplus_shortage: 0,
+          price_per_unit: 1.00,
         };
       });
 
@@ -418,13 +420,13 @@ export default function NewVisitReport() {
     setMachineAudits(audits);
   }, [selectedSpot, locationSpots, setupMachines, machineSlots, lastVisitReport]);
 
-  // Calculate total cash recollected - $1 per unit sold
+  // Calculate total cash recollected - using price_per_unit from each slot
   const totalCashRecollected = useMemo(() => {
     let total = 0;
     machineAudits.forEach(machine => {
       machine.slots.forEach(slot => {
         if (slot.toy_id && slot.units_sold > 0) {
-          total += slot.units_sold * 1.00; // $1 per unit
+          total += slot.units_sold * slot.price_per_unit;
         }
       });
     });
@@ -814,7 +816,7 @@ export default function NewVisitReport() {
               location_name_snapshot: selectedLocationData?.name || 'Unknown',
               location_spot_name_snapshot: selectedSpotData?.place_name || `Spot #${selectedSpotData?.spot_number}`,
               slot_position_snapshot: `Slot ${slot.slot_number}`,
-              unit_price_snapshot: 1.00,
+              unit_price_snapshot: slot.price_per_unit,
               replacement_toy_name: replacementProduct?.product_name || null,
               // Inventory
               last_stock: slot.last_stock,
@@ -1335,6 +1337,17 @@ export default function NewVisitReport() {
                                     />
                                   </div>
                                 </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Price Per Unit ($)</Label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.25"
+                                    value={slot.price_per_unit}
+                                    onChange={(e) => updateSlotField(machineIndex, slotIndex, 'price_per_unit', parseFloat(e.target.value) || 1.00)}
+                                    className="h-8"
+                                  />
+                                </div>
                               </div>
                             )}
 
@@ -1382,9 +1395,22 @@ export default function NewVisitReport() {
                                   </div>
                                 </div>
 
-                                <div className="flex items-center justify-between text-sm p-2 bg-muted/30 rounded">
-                                  <span className="text-muted-foreground">Calculated Stock:</span>
-                                  <span className="font-bold">{slot.calculated_stock}</span>
+                                <div className="grid grid-cols-2 gap-2 text-sm p-2 bg-muted/30 rounded">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Calculated Stock:</span>
+                                    <span className="font-bold">{slot.calculated_stock}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground text-xs">Price/Unit:</span>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="0.25"
+                                      value={slot.price_per_unit}
+                                      onChange={(e) => updateSlotField(machineIndex, slotIndex, 'price_per_unit', parseFloat(e.target.value) || 1.00)}
+                                      className="h-6 w-16 text-xs"
+                                    />
+                                  </div>
                                 </div>
 
                                 {/* Jam Type Selection */}
