@@ -255,7 +255,7 @@ export default function NewVisitReport() {
     queryFn: async () => {
       const { data } = await supabase
         .from('machine_toy_slots')
-        .select('*, products(*)')
+        .select('id, machine_id, slot_number, product_id, toy_capacity, toy_current_stock, location_id, location_spot_id, products(*)')
         .eq('company_id', profile?.company_id);
       return data || [];
     },
@@ -675,7 +675,7 @@ export default function NewVisitReport() {
               replacement_toy_name: replacementProduct?.product_name || null,
               machine_serial_snapshot: machine.serial_number,
               slot_position_snapshot: `Slot ${slot.slot_number}`,
-              unit_price_snapshot: 1.00,
+              unit_price_snapshot: slot.price_per_unit,
               // Inventory
               toy_capacity: slot.toy_capacity,
               original_toy_capacity: slot.original_toy_capacity,
