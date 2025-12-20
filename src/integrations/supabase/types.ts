@@ -910,32 +910,30 @@ export type Database = {
       }
       visit_report_stock: {
         Row: {
-          audited_count: number | null
+          capacity_snapshot: number | null
+          company_id: string
+          cost_per_unit_snapshot: number | null
           created_at: string
-          current_stock: number
-          discrepancy: number | null
+          days_since_last_refill: number | null
+          employee_id: string | null
           has_issue: boolean | null
           id: string
           is_being_replaced: boolean | null
-          is_replacing_toy: boolean | null
-          issue_description: string | null
           issue_severity: string | null
           jam_type: string | null
-          last_stock: number | null
+          location_id: string | null
           location_name_snapshot: string | null
           location_spot_id: string | null
-          location_spot_name_snapshot: string | null
           machine_id: string | null
           machine_serial_snapshot: string | null
           machine_toy_slot_id: string | null
-          product_id: string | null
-          product_name: string | null
-          removed_for_replacement: number | null
           replacement_toy_id: string | null
           replacement_toy_name: string | null
           reported_issue: string | null
-          slot_number: number | null
+          reported_issue_photo_url: string | null
           slot_position_snapshot: string | null
+          spot_name_snapshot: string | null
+          total_revenue: number | null
           toy_id: string | null
           toy_name_snapshot: string | null
           unit_price_snapshot: number | null
@@ -944,37 +942,35 @@ export type Database = {
           units_removed: number | null
           units_shortage_surplus: number | null
           units_sold: number | null
-          variance: number | null
+          visit_date: string | null
           visit_report_id: string
           visit_type: string | null
         }
         Insert: {
-          audited_count?: number | null
+          capacity_snapshot?: number | null
+          company_id: string
+          cost_per_unit_snapshot?: number | null
           created_at?: string
-          current_stock: number
-          discrepancy?: number | null
+          days_since_last_refill?: number | null
+          employee_id?: string | null
           has_issue?: boolean | null
           id?: string
           is_being_replaced?: boolean | null
-          is_replacing_toy?: boolean | null
-          issue_description?: string | null
           issue_severity?: string | null
           jam_type?: string | null
-          last_stock?: number | null
+          location_id?: string | null
           location_name_snapshot?: string | null
           location_spot_id?: string | null
-          location_spot_name_snapshot?: string | null
           machine_id?: string | null
           machine_serial_snapshot?: string | null
           machine_toy_slot_id?: string | null
-          product_id?: string | null
-          product_name?: string | null
-          removed_for_replacement?: number | null
           replacement_toy_id?: string | null
           replacement_toy_name?: string | null
           reported_issue?: string | null
-          slot_number?: number | null
+          reported_issue_photo_url?: string | null
           slot_position_snapshot?: string | null
+          spot_name_snapshot?: string | null
+          total_revenue?: number | null
           toy_id?: string | null
           toy_name_snapshot?: string | null
           unit_price_snapshot?: number | null
@@ -983,37 +979,35 @@ export type Database = {
           units_removed?: number | null
           units_shortage_surplus?: number | null
           units_sold?: number | null
-          variance?: number | null
+          visit_date?: string | null
           visit_report_id: string
           visit_type?: string | null
         }
         Update: {
-          audited_count?: number | null
+          capacity_snapshot?: number | null
+          company_id?: string
+          cost_per_unit_snapshot?: number | null
           created_at?: string
-          current_stock?: number
-          discrepancy?: number | null
+          days_since_last_refill?: number | null
+          employee_id?: string | null
           has_issue?: boolean | null
           id?: string
           is_being_replaced?: boolean | null
-          is_replacing_toy?: boolean | null
-          issue_description?: string | null
           issue_severity?: string | null
           jam_type?: string | null
-          last_stock?: number | null
+          location_id?: string | null
           location_name_snapshot?: string | null
           location_spot_id?: string | null
-          location_spot_name_snapshot?: string | null
           machine_id?: string | null
           machine_serial_snapshot?: string | null
           machine_toy_slot_id?: string | null
-          product_id?: string | null
-          product_name?: string | null
-          removed_for_replacement?: number | null
           replacement_toy_id?: string | null
           replacement_toy_name?: string | null
           reported_issue?: string | null
-          slot_number?: number | null
+          reported_issue_photo_url?: string | null
           slot_position_snapshot?: string | null
+          spot_name_snapshot?: string | null
+          total_revenue?: number | null
           toy_id?: string | null
           toy_name_snapshot?: string | null
           unit_price_snapshot?: number | null
@@ -1022,11 +1016,18 @@ export type Database = {
           units_removed?: number | null
           units_shortage_surplus?: number | null
           units_sold?: number | null
-          variance?: number | null
+          visit_date?: string | null
           visit_report_id?: string
           visit_type?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "visit_report_stock_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "visit_report_stock_location_spot_id_fkey"
             columns: ["location_spot_id"]
@@ -1046,13 +1047,6 @@ export type Database = {
             columns: ["machine_toy_slot_id"]
             isOneToOne: false
             referencedRelation: "machine_toy_slots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visit_report_stock_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {
