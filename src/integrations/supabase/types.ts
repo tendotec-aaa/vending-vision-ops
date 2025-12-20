@@ -367,62 +367,50 @@ export type Database = {
         Row: {
           capacity: number | null
           company_id: string
-          created_at: string
+          current_stock: number | null
+          employee_id: string | null
           id: string
           last_refill_date: string | null
           location_id: string | null
-          location_name_snapshot: string | null
-          location_spot_id: string | null
-          location_spot_name_snapshot: string | null
           machine_id: string
           machine_serial_cached: string | null
-          product_id: string | null
+          price_per_unit: number | null
           slot_number: number
-          toy_capacity: number | null
-          toy_current_stock: number | null
+          spot_id: string | null
           toy_id: string | null
           toy_name_cached: string | null
-          updated_at: string
         }
         Insert: {
           capacity?: number | null
           company_id: string
-          created_at?: string
+          current_stock?: number | null
+          employee_id?: string | null
           id?: string
           last_refill_date?: string | null
           location_id?: string | null
-          location_name_snapshot?: string | null
-          location_spot_id?: string | null
-          location_spot_name_snapshot?: string | null
           machine_id: string
           machine_serial_cached?: string | null
-          product_id?: string | null
+          price_per_unit?: number | null
           slot_number: number
-          toy_capacity?: number | null
-          toy_current_stock?: number | null
+          spot_id?: string | null
           toy_id?: string | null
           toy_name_cached?: string | null
-          updated_at?: string
         }
         Update: {
           capacity?: number | null
           company_id?: string
-          created_at?: string
+          current_stock?: number | null
+          employee_id?: string | null
           id?: string
           last_refill_date?: string | null
           location_id?: string | null
-          location_name_snapshot?: string | null
-          location_spot_id?: string | null
-          location_spot_name_snapshot?: string | null
           machine_id?: string
           machine_serial_cached?: string | null
-          product_id?: string | null
+          price_per_unit?: number | null
           slot_number?: number
-          toy_capacity?: number | null
-          toy_current_stock?: number | null
+          spot_id?: string | null
           toy_id?: string | null
           toy_name_cached?: string | null
-          updated_at?: string
         }
         Relationships: [
           {
@@ -433,13 +421,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "machine_toy_slots_location_spot_id_fkey"
-            columns: ["location_spot_id"]
-            isOneToOne: false
-            referencedRelation: "location_spots"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "machine_toy_slots_machine_id_fkey"
             columns: ["machine_id"]
             isOneToOne: false
@@ -447,10 +428,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "machine_toy_slots_product_id_fkey"
-            columns: ["product_id"]
+            foreignKeyName: "machine_toy_slots_spot_id_fkey"
+            columns: ["spot_id"]
             isOneToOne: false
-            referencedRelation: "products"
+            referencedRelation: "location_spots"
             referencedColumns: ["id"]
           },
           {

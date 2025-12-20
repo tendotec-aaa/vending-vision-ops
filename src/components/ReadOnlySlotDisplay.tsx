@@ -2,19 +2,18 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Package, AlertTriangle } from 'lucide-react';
 
-interface Product {
+interface Toy {
   id: string;
-  product_name: string;
+  name: string;
 }
 
 interface ToySlot {
   id: string;
   slot_number: number;
   toy_id: string | null;
-  product_id: string | null;
-  toy_capacity?: number | null;
-  toy_current_stock?: number | null;
-  products?: Product | null;
+  capacity?: number | null;
+  current_stock?: number | null;
+  toys?: Toy | null;
 }
 
 interface Props {
@@ -31,11 +30,11 @@ export function ReadOnlySlotDisplay({ slots, slotCount }: Props) {
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
       {Array.from({ length: slotCount }, (_, i) => i + 1).map((slotNum) => {
         const slot = getSlotData(slotNum);
-        const capacity = slot?.toy_capacity || 20;
-        const currentStock = slot?.toy_current_stock || 0;
+        const capacity = slot?.capacity || 20;
+        const currentStock = slot?.current_stock || 0;
         const stockPercentage = capacity > 0 ? (currentStock / capacity) * 100 : 0;
         const isLowStock = stockPercentage < 25;
-        const isEmpty = !slot?.product_id;
+        const isEmpty = !slot?.toy_id;
 
         return (
           <div 
@@ -62,8 +61,8 @@ export function ReadOnlySlotDisplay({ slots, slotCount }: Props) {
               <p className="text-xs text-muted-foreground italic">Empty</p>
             ) : (
               <div className="space-y-1">
-                <p className="text-xs font-medium truncate" title={slot?.products?.product_name}>
-                  {slot?.products?.product_name || 'Unknown Product'}
+                <p className="text-xs font-medium truncate" title={slot?.toys?.name}>
+                  {slot?.toys?.name || 'Unknown Toy'}
                 </p>
                 <div className="flex items-center justify-between text-xs">
                   <span className={`${isLowStock ? 'text-red-600' : 'text-muted-foreground'}`}>
