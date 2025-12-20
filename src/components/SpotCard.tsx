@@ -39,12 +39,12 @@ interface MachineSlot {
   machine_id: string;
   slot_number: number;
   toy_id: string | null;
-  product_id: string | null;
-  toy_capacity?: number | null;
-  toy_current_stock?: number | null;
-  products?: {
+  current_stock?: number | null;
+  capacity?: number | null;
+  price_per_unit?: number | null;
+  toys?: {
     id: string;
-    product_name: string;
+    name: string;
   } | null;
 }
 
@@ -109,8 +109,8 @@ export function SpotCard({
   const allSlotsForSpot = machines.flatMap(sm => 
     machineSlots.filter(ms => ms.machine_id === sm.machine_id)
   );
-  const totalCapacity = allSlotsForSpot.reduce((sum, slot) => sum + (slot.toy_capacity || 20), 0);
-  const currentStock = allSlotsForSpot.reduce((sum, slot) => sum + (slot.toy_current_stock || 0), 0);
+  const totalCapacity = allSlotsForSpot.reduce((sum, slot) => sum + (slot.capacity || 20), 0);
+  const currentStock = allSlotsForSpot.reduce((sum, slot) => sum + (slot.current_stock || 0), 0);
   const stockPercentage = totalCapacity > 0 ? (currentStock / totalCapacity) * 100 : 0;
 
   // Calculate 30-day average (rough estimate based on total sales and operational days)
@@ -359,9 +359,9 @@ export function SpotCard({
                       if (!machine) return null;
                       const slots = getSlotsForMachine(machine.id);
                       const isMachineExpanded = expandedMachines.has(machine.id);
-                      const filledSlots = slots.filter(s => s.product_id).length;
-                      const machineCapacity = slots.reduce((sum, s) => sum + (s.toy_capacity || 20), 0);
-                      const machineStock = slots.reduce((sum, s) => sum + (s.toy_current_stock || 0), 0);
+                      const filledSlots = slots.filter(s => s.toy_id).length;
+                      const machineCapacity = slots.reduce((sum, s) => sum + (s.capacity || 20), 0);
+                      const machineStock = slots.reduce((sum, s) => sum + (s.current_stock || 0), 0);
 
                       return (
                         <Collapsible

@@ -133,11 +133,11 @@ export default function ProductDetail() {
   const { data: toyMovements } = useQuery({
     queryKey: ["machine_toy_movements", id],
     queryFn: async () => {
-      // First get slot IDs for this product
+      // First get slot IDs for this toy
       const { data: slots } = await supabase
         .from("machine_toy_slots")
         .select("id")
-        .eq("product_id", id);
+        .eq("toy_id", id);
       
       if (!slots || slots.length === 0) return [];
       
