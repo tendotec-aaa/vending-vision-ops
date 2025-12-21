@@ -481,11 +481,14 @@ export default function NewVisitReport() {
       
       if (error) throw error;
       
-      const { data: { publicUrl } } = supabase.storage
+      // Create a signed URL for private bucket access (1 hour expiry)
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('visit-photos')
-        .getPublicUrl(data.path);
+        .createSignedUrl(data.path, 3600);
       
-      return publicUrl;
+      if (signedUrlError) throw signedUrlError;
+      
+      return signedUrlData.signedUrl;
     } catch (error: any) {
       console.error('Error uploading photo:', error);
       toast.error('Failed to upload photo');
