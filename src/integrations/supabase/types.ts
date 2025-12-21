@@ -50,33 +50,57 @@ export type Database = {
       companies: {
         Row: {
           address: string | null
+          billing_currency: string | null
+          brand_color: string | null
           company_email: string | null
           created_at: string
+          fiscal_year_start: string | null
           id: string
+          legal_business_name: string | null
+          logo_url: string | null
           name: string
           phone_number: string | null
+          support_email: string | null
+          support_phone: string | null
           tax_id: string | null
           updated_at: string
+          website_url: string | null
         }
         Insert: {
           address?: string | null
+          billing_currency?: string | null
+          brand_color?: string | null
           company_email?: string | null
           created_at?: string
+          fiscal_year_start?: string | null
           id?: string
+          legal_business_name?: string | null
+          logo_url?: string | null
           name: string
           phone_number?: string | null
+          support_email?: string | null
+          support_phone?: string | null
           tax_id?: string | null
           updated_at?: string
+          website_url?: string | null
         }
         Update: {
           address?: string | null
+          billing_currency?: string | null
+          brand_color?: string | null
           company_email?: string | null
           created_at?: string
+          fiscal_year_start?: string | null
           id?: string
+          legal_business_name?: string | null
+          logo_url?: string | null
           name?: string
           phone_number?: string | null
+          support_email?: string | null
+          support_phone?: string | null
           tax_id?: string | null
           updated_at?: string
+          website_url?: string | null
         }
         Relationships: []
       }
@@ -600,34 +624,76 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_status: string | null
+          assigned_territory: string | null
+          avatar_url: string | null
           company_id: string | null
           created_at: string
+          drivers_license_number: string | null
           email: string
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          employee_id: string | null
           first_name: string | null
           id: string
+          job_title: string | null
+          last_login_at: string | null
           last_name: string | null
+          last_sync_at: string | null
           phone_number: string | null
+          preferred_language: string | null
+          start_date: string | null
+          timezone: string | null
           updated_at: string
+          vehicle_assigned: string | null
         }
         Insert: {
+          account_status?: string | null
+          assigned_territory?: string | null
+          avatar_url?: string | null
           company_id?: string | null
           created_at?: string
+          drivers_license_number?: string | null
           email: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          employee_id?: string | null
           first_name?: string | null
           id: string
+          job_title?: string | null
+          last_login_at?: string | null
           last_name?: string | null
+          last_sync_at?: string | null
           phone_number?: string | null
+          preferred_language?: string | null
+          start_date?: string | null
+          timezone?: string | null
           updated_at?: string
+          vehicle_assigned?: string | null
         }
         Update: {
+          account_status?: string | null
+          assigned_territory?: string | null
+          avatar_url?: string | null
           company_id?: string | null
           created_at?: string
+          drivers_license_number?: string | null
           email?: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          employee_id?: string | null
           first_name?: string | null
           id?: string
+          job_title?: string | null
+          last_login_at?: string | null
           last_name?: string | null
+          last_sync_at?: string | null
           phone_number?: string | null
+          preferred_language?: string | null
+          start_date?: string | null
+          timezone?: string | null
           updated_at?: string
+          vehicle_assigned?: string | null
         }
         Relationships: [
           {
