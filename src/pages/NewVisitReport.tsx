@@ -19,6 +19,14 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
@@ -38,7 +46,11 @@ import {
   Calendar,
   TrendingUp,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Save,
+  FileText,
+  Trash2,
+  ChevronDown
 } from 'lucide-react';
 
 interface ToySlotAudit {
@@ -72,11 +84,14 @@ interface MachineAudit {
   slots: ToySlotAudit[];
 }
 
-const DRAFT_STORAGE_KEY = 'visit_report_draft';
+const DRAFTS_STORAGE_KEY = 'visit_report_drafts';
 
 interface DraftData {
+  id: string;
   selectedLocation: string;
+  selectedLocationName: string;
   selectedSpot: string;
+  selectedSpotName: string;
   visitType: string;
   visitDate: string;
   hasObservation: boolean;
@@ -84,7 +99,29 @@ interface DraftData {
   generalNotes: string;
   machineAudits: MachineAudit[];
   savedAt: string;
+  photoPreviewData?: string | null;
 }
+
+// Get all drafts from localStorage
+const getAllDrafts = (): DraftData[] => {
+  try {
+    const saved = localStorage.getItem(DRAFTS_STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved) as DraftData[];
+    }
+  } catch (e) {
+    console.error('Failed to parse drafts:', e);
+  }
+  return [];
+};
+
+// Save all drafts to localStorage
+const saveAllDrafts = (drafts: DraftData[]) => {
+  localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(drafts));
+};
+
+// Generate unique draft ID
+const generateDraftId = () => `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 export default function NewVisitReport() {
   const { user } = useAuth();
@@ -107,14 +144,41 @@ export default function NewVisitReport() {
   const [machineAudits, setMachineAudits] = useState<MachineAudit[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [hasDraft, setHasDraft] = useState(false);
-  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [drafts, setDrafts] = useState<DraftData[]>([]);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
-  // Save draft to localStorage
-  const saveDraft = () => {
-    const draft: DraftData = {
+  // Load drafts on mount
+  useEffect(() => {
+    const savedDrafts = getAllDrafts();
+    setDrafts(savedDrafts);
+  }, []);
+
+  // Get location and spot names for draft display
+  const getLocationName = (locationId: string) => {
+    return locations?.find(l => l.id === locationId)?.name || 'Unknown Location';
+  };
+
+  const getSpotName = (spotId: string) => {
+    const spot = locationSpots?.find(s => s.id === spotId);
+    return spot?.place_name || `Spot #${spot?.spot_number}` || 'Unknown Spot';
+  };
+
+  // Save current form as a new draft or update existing
+  const saveDraft = (showToast = true) => {
+    if (!selectedLocation && !selectedSpot && machineAudits.length === 0) {
+      if (showToast) toast.error('Nothing to save');
+      return;
+    }
+
+    setIsSavingDraft(true);
+    
+    const newDraft: DraftData = {
+      id: activeDraftId || generateDraftId(),
       selectedLocation,
+      selectedLocationName: getLocationName(selectedLocation),
       selectedSpot,
+      selectedSpotName: getSpotName(selectedSpot),
       visitType,
       visitDate,
       hasObservation,
@@ -122,60 +186,70 @@ export default function NewVisitReport() {
       generalNotes,
       machineAudits,
       savedAt: new Date().toISOString(),
+      photoPreviewData: photoPreview,
     };
-    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
-  };
 
-  // Load draft from localStorage
-  const loadDraft = () => {
-    try {
-      const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
-      if (saved) {
-        const draft: DraftData = JSON.parse(saved);
-        setSelectedLocation(draft.selectedLocation || '');
-        setSelectedSpot(draft.selectedSpot || '');
-        setVisitType(draft.visitType || 'routine');
-        setVisitDate(draft.visitDate || new Date().toISOString().split('T')[0]);
-        setHasObservation(draft.hasObservation || false);
-        setObservation(draft.observation || '');
-        setGeneralNotes(draft.generalNotes || '');
-        if (draft.machineAudits?.length > 0) {
-          setMachineAudits(draft.machineAudits);
-        }
-        toast.info(`Draft restored from ${format(new Date(draft.savedAt), 'PPp')}`);
-      }
-    } catch (e) {
-      console.error('Failed to load draft:', e);
-    }
-    setDraftLoaded(true);
-  };
-
-  // Clear draft
-  const clearDraft = () => {
-    localStorage.removeItem(DRAFT_STORAGE_KEY);
-    setHasDraft(false);
-  };
-
-  // Check for existing draft on mount
-  useEffect(() => {
-    const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
-    if (saved) {
-      setHasDraft(true);
+    // Update drafts list
+    const existingDrafts = getAllDrafts();
+    const draftIndex = existingDrafts.findIndex(d => d.id === newDraft.id);
+    
+    if (draftIndex >= 0) {
+      existingDrafts[draftIndex] = newDraft;
     } else {
-      setDraftLoaded(true);
+      existingDrafts.unshift(newDraft);
     }
-  }, []);
+    
+    // Keep only the last 10 drafts
+    const trimmedDrafts = existingDrafts.slice(0, 10);
+    saveAllDrafts(trimmedDrafts);
+    setDrafts(trimmedDrafts);
+    setActiveDraftId(newDraft.id);
+    
+    if (showToast) {
+      toast.success('Draft saved successfully');
+    }
+    
+    setIsSavingDraft(false);
+  };
 
-  // Auto-save draft when form changes (debounced)
-  useEffect(() => {
-    if (!draftLoaded) return;
-    const timeoutId = setTimeout(() => {
-      if (selectedLocation || selectedSpot || observation || generalNotes || machineAudits.length > 0) {
-        saveDraft();
-      }
-    }, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [selectedLocation, selectedSpot, visitType, visitDate, hasObservation, observation, generalNotes, machineAudits, draftLoaded]);
+  // Load a specific draft
+  const loadDraft = (draft: DraftData) => {
+    setSelectedLocation(draft.selectedLocation || '');
+    setSelectedSpot(draft.selectedSpot || '');
+    setVisitType(draft.visitType || 'routine');
+    setVisitDate(draft.visitDate || new Date().toISOString().split('T')[0]);
+    setHasObservation(draft.hasObservation || false);
+    setObservation(draft.observation || '');
+    setGeneralNotes(draft.generalNotes || '');
+    if (draft.machineAudits?.length > 0) {
+      setMachineAudits(draft.machineAudits);
+    }
+    if (draft.photoPreviewData) {
+      setPhotoPreview(draft.photoPreviewData);
+    }
+    setActiveDraftId(draft.id);
+    toast.info(`Draft loaded from ${format(new Date(draft.savedAt), 'PPp')}`);
+  };
+
+  // Discard a specific draft
+  const discardDraft = (draftId: string) => {
+    const updatedDrafts = drafts.filter(d => d.id !== draftId);
+    saveAllDrafts(updatedDrafts);
+    setDrafts(updatedDrafts);
+    
+    if (activeDraftId === draftId) {
+      setActiveDraftId(null);
+    }
+    
+    toast.success('Draft discarded');
+  };
+
+  // Clear active draft (used when submitting)
+  const clearActiveDraft = () => {
+    if (activeDraftId) {
+      discardDraft(activeDraftId);
+    }
+  };
 
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
@@ -990,7 +1064,7 @@ export default function NewVisitReport() {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['machine_toy_slots'] });
       queryClient.invalidateQueries({ queryKey: ['work_orders'] });
-      clearDraft();
+      clearActiveDraft();
       toast.success('Visit report submitted successfully!');
       navigate('/visit-reports');
     } catch (error: any) {
@@ -1021,26 +1095,63 @@ export default function NewVisitReport() {
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-4">
-        {/* Draft Restore Prompt */}
-        {hasDraft && !draftLoaded && (
-          <Card className="bg-amber-500/10 border-amber-500/30">
+        {/* Draft Control Dropdown */}
+        {drafts.length > 0 && (
+          <Card className="bg-muted/30 border-muted">
             <CardContent className="pt-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <AlertCircle className="h-5 w-5 text-amber-500" />
+                  <FileText className="h-5 w-5 text-primary" />
                   <div>
-                    <p className="font-medium text-sm">You have a saved draft</p>
-                    <p className="text-xs text-muted-foreground">Would you like to restore it?</p>
+                    <p className="font-medium text-sm">
+                      {activeDraftId ? 'Working on draft' : 'Saved drafts available'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {drafts.length} draft{drafts.length !== 1 ? 's' : ''} saved
+                    </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => { clearDraft(); setDraftLoaded(true); }}>
-                    Discard
-                  </Button>
-                  <Button size="sm" onClick={loadDraft}>
-                    Restore
-                  </Button>
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Drafts
+                      <ChevronDown className="h-4 w-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-72 bg-popover">
+                    <DropdownMenuLabel>Saved Drafts</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {drafts.map((draft) => (
+                      <div key={draft.id} className="flex items-center justify-between px-2 py-1 hover:bg-accent rounded-sm">
+                        <DropdownMenuItem
+                          className="flex-1 cursor-pointer p-0"
+                          onClick={() => loadDraft(draft)}
+                        >
+                          <div className="flex flex-col py-1">
+                            <span className="text-sm font-medium">
+                              {draft.selectedLocationName || 'No Location'} - {draft.selectedSpotName || 'No Spot'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(draft.savedAt), 'MMM d, yyyy h:mm a')}
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            discardDraft(draft.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </CardContent>
           </Card>
@@ -1774,21 +1885,48 @@ export default function NewVisitReport() {
               </div>
             </div>
 
-            <Button 
-              onClick={handleSubmit} 
-              className="w-full" 
-              size="lg" 
-              disabled={isSubmitting || !isSigned || uploadingPhoto}
-            >
-              {isSubmitting || uploadingPhoto ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {uploadingPhoto ? 'Uploading Photo...' : 'Submitting...'}
-                </>
-              ) : (
-                'Submit Report'
+            {/* Action Buttons */}
+            <div className="space-y-2">
+              {/* Save Draft Button - shown when not signed */}
+              {!isSigned && (
+                <Button 
+                  onClick={() => saveDraft(true)}
+                  variant="outline"
+                  className="w-full" 
+                  size="lg" 
+                  disabled={isSavingDraft || (!selectedLocation && !selectedSpot && machineAudits.length === 0)}
+                >
+                  {isSavingDraft ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving Draft...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Draft
+                    </>
+                  )}
+                </Button>
               )}
-            </Button>
+
+              {/* Submit Button */}
+              <Button 
+                onClick={handleSubmit} 
+                className="w-full" 
+                size="lg" 
+                disabled={isSubmitting || !isSigned || uploadingPhoto}
+              >
+                {isSubmitting || uploadingPhoto ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {uploadingPhoto ? 'Uploading Photo...' : 'Submitting...'}
+                  </>
+                ) : (
+                  'Submit Report'
+                )}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </main>
