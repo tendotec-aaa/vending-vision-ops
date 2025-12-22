@@ -894,6 +894,69 @@ export type Database = {
         }
         Relationships: []
       }
+      submit_report_log_book: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_machine_toy_movement_ids: string[] | null
+          created_visit_report_id: string | null
+          created_visit_report_stock_ids: string[] | null
+          created_work_order_ids: string[] | null
+          employee_id: string | null
+          id: string
+          is_rolled_back: boolean | null
+          rollback_notes: string | null
+          rolled_back_at: string | null
+          rolled_back_by: string | null
+          submitted_at: string
+          updated_location_spots: Json | null
+          updated_locations: Json | null
+          updated_machine_toy_slots: Json | null
+          uploaded_photo_path: string | null
+          visit_report_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_machine_toy_movement_ids?: string[] | null
+          created_visit_report_id?: string | null
+          created_visit_report_stock_ids?: string[] | null
+          created_work_order_ids?: string[] | null
+          employee_id?: string | null
+          id?: string
+          is_rolled_back?: boolean | null
+          rollback_notes?: string | null
+          rolled_back_at?: string | null
+          rolled_back_by?: string | null
+          submitted_at?: string
+          updated_location_spots?: Json | null
+          updated_locations?: Json | null
+          updated_machine_toy_slots?: Json | null
+          uploaded_photo_path?: string | null
+          visit_report_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_machine_toy_movement_ids?: string[] | null
+          created_visit_report_id?: string | null
+          created_visit_report_stock_ids?: string[] | null
+          created_work_order_ids?: string[] | null
+          employee_id?: string | null
+          id?: string
+          is_rolled_back?: boolean | null
+          rollback_notes?: string | null
+          rolled_back_at?: string | null
+          rolled_back_by?: string | null
+          submitted_at?: string
+          updated_location_spots?: Json | null
+          updated_locations?: Json | null
+          updated_machine_toy_slots?: Json | null
+          uploaded_photo_path?: string | null
+          visit_report_id?: string
+        }
+        Relationships: []
+      }
       suppliers: {
         Row: {
           company_id: string
@@ -1353,6 +1416,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      rollback_visit_report: {
+        Args: { p_log_id: string; p_rollback_notes?: string }
         Returns: boolean
       }
     }

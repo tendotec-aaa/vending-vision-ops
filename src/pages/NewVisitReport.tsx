@@ -615,11 +615,72 @@ export default function NewVisitReport() {
     }
 
     setIsSubmitting(true);
+    
+    // Track IDs for log book
+    const createdWorkOrderIds: string[] = [];
+    const createdVisitReportStockIds: string[] = [];
+    
+    // Capture previous values for rollback
+    const previousSlotValues: { id: string; previous_values: any }[] = [];
+    const previousSpotValues: { id: string; previous_values: any }[] = [];
+    const previousLocationValues: { id: string; previous_values: any }[] = [];
+    
     try {
+      // Capture current slot values BEFORE any updates (will be updated by trigger)
+      for (const machine of machineAudits) {
+        for (const slot of machine.slots) {
+          if (slot.slot_id && (slot.toy_id || slot.replacement_toy_id)) {
+            const slotData = machineSlots?.find(ms => ms.id === slot.slot_id);
+            if (slotData) {
+              previousSlotValues.push({
+                id: slot.slot_id,
+                previous_values: {
+                  current_stock: slotData.current_stock,
+                  toy_id: slotData.toy_id,
+                  capacity: slotData.capacity,
+                  price_per_unit: slotData.price_per_unit,
+                  last_refill_date: slotData.last_refill_date,
+                }
+              });
+            }
+          }
+        }
+      }
+      
+      // Capture current spot values
+      if (selectedSpotData) {
+        previousSpotValues.push({
+          id: selectedSpot,
+          previous_values: {
+            spot_last_visit_report: selectedSpotData.spot_last_visit_report,
+            spot_last_visit_report_id: selectedSpotData.spot_last_visit_report_id,
+            spot_total_sales: selectedSpotData.spot_total_sales,
+          }
+        });
+      }
+      
+      // Capture current location values
+      if (selectedLocationData) {
+        previousLocationValues.push({
+          id: selectedLocation,
+          previous_values: {
+            location_last_visit_report: selectedLocationData.location_last_visit_report,
+            location_last_visit_report_id: selectedLocationData.location_last_visit_report_id,
+            location_total_sales: selectedLocationData.location_total_sales,
+          }
+        });
+      }
+
       // Upload photo first if exists
       let photoUrl = null;
+      let uploadedPhotoPath = null;
       if (photoFile) {
         photoUrl = await uploadPhoto();
+        // Extract path from URL for potential deletion during rollback
+        if (photoUrl) {
+          const urlParts = photoUrl.split('/visit-photos/');
+          uploadedPhotoPath = urlParts.length > 1 ? urlParts[1] : null;
+        }
       }
 
       // Calculate totals
@@ -789,18 +850,33 @@ export default function NewVisitReport() {
           status: 'pending',
         }));
         
-        await supabase.from('work_orders').insert(workOrdersToInsert);
+        const { data: workOrders } = await supabase
+          .from('work_orders')
+          .insert(workOrdersToInsert)
+          .select('id');
+        
+        if (workOrders) {
+          createdWorkOrderIds.push(...workOrders.map(wo => wo.id));
+        }
       }
       
       // Create work order for observation if flagged
       if (hasObservation && observation) {
-        await supabase.from('work_orders').insert({
-          company_id: profile?.company_id!,
-          location_id: selectedLocation,
-          issue_type: 'Observation',
-          description: observation,
-          status: 'pending',
-        });
+        const { data: obsWorkOrder } = await supabase
+          .from('work_orders')
+          .insert({
+            company_id: profile?.company_id!,
+            location_id: selectedLocation,
+            issue_type: 'Observation',
+            description: observation,
+            status: 'pending',
+          })
+          .select('id')
+          .single();
+        
+        if (obsWorkOrder) {
+          createdWorkOrderIds.push(obsWorkOrder.id);
+        }
       }
 
       // Insert stock records with the new schema
@@ -876,11 +952,37 @@ export default function NewVisitReport() {
       });
 
       if (stockRecords.length > 0) {
-        const { error: stockError } = await supabase
+        const { data: insertedStockRecords, error: stockError } = await supabase
           .from('visit_report_stock')
-          .insert(stockRecords);
+          .insert(stockRecords)
+          .select('id');
         if (stockError) throw stockError;
+        
+        if (insertedStockRecords) {
+          createdVisitReportStockIds.push(...insertedStockRecords.map(s => s.id));
+        }
       }
+
+      // Create log book entry for rollback capability
+      // Note: machine_toy_movement_ids are created by trigger, we'll need to fetch them
+      const { data: movements } = await supabase
+        .from('machine_toy_movements')
+        .select('id')
+        .eq('visit_report_id', report.id);
+      
+      await supabase.from('submit_report_log_book').insert({
+        visit_report_id: report.id,
+        company_id: profile?.company_id!,
+        employee_id: user!.id,
+        created_visit_report_id: report.id,
+        created_visit_report_stock_ids: createdVisitReportStockIds,
+        created_work_order_ids: createdWorkOrderIds,
+        created_machine_toy_movement_ids: movements?.map(m => m.id) || [],
+        updated_machine_toy_slots: previousSlotValues,
+        updated_location_spots: previousSpotValues,
+        updated_locations: previousLocationValues,
+        uploaded_photo_path: uploadedPhotoPath,
+      });
 
       queryClient.invalidateQueries({ queryKey: ['visit_reports'] });
       queryClient.invalidateQueries({ queryKey: ['location_spots'] });
