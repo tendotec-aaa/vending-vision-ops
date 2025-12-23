@@ -101,9 +101,12 @@ export function SpotCard({
   const assignedSetup = setups.find(s => s.id === spot.setup_id);
   const machines = setupMachines.filter(sm => sm.setup_id === spot.setup_id);
 
-  // Calculate operational days
+  // Calculate operational days - from start date to last visit (not current date)
   const startDate = spot.spot_start_date || locationStartDate;
-  const operationalDays = startDate ? differenceInDays(new Date(), new Date(startDate)) : null;
+  const endDate = spot.spot_last_visit_report ? new Date(spot.spot_last_visit_report) : null;
+  const operationalDays = startDate && endDate 
+    ? differenceInDays(endDate, new Date(startDate)) 
+    : null;
 
   // Calculate total capacity and current stock across all machines
   const allSlotsForSpot = machines.flatMap(sm => 
@@ -118,7 +121,7 @@ export function SpotCard({
     ? ((Number(spot.spot_total_sales) / operationalDays) * 30)
     : null;
 
-  // Calculate total rent: (monthly rent * 12 / 365) × days active
+  // Calculate total rent: (monthly rent * 12 / 365) × days active (from start to last visit)
   const dailyRentRate = rentPerSpot ? (rentPerSpot * 12) / 365 : 0;
   const totalRent = rentPerSpot && operationalDays && operationalDays > 0
     ? dailyRentRate * operationalDays
