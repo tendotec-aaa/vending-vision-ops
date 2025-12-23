@@ -396,11 +396,13 @@ export type Database = {
           id: string
           last_refill_date: string | null
           location_id: string | null
+          location_name_cached: string | null
           machine_id: string
           machine_serial_cached: string | null
           price_per_unit: number | null
           slot_number: number
           spot_id: string | null
+          spot_name_cached: string | null
           toy_id: string | null
           toy_name_cached: string | null
         }
@@ -412,11 +414,13 @@ export type Database = {
           id?: string
           last_refill_date?: string | null
           location_id?: string | null
+          location_name_cached?: string | null
           machine_id: string
           machine_serial_cached?: string | null
           price_per_unit?: number | null
           slot_number: number
           spot_id?: string | null
+          spot_name_cached?: string | null
           toy_id?: string | null
           toy_name_cached?: string | null
         }
@@ -428,11 +432,13 @@ export type Database = {
           id?: string
           last_refill_date?: string | null
           location_id?: string | null
+          location_name_cached?: string | null
           machine_id?: string
           machine_serial_cached?: string | null
           price_per_unit?: number | null
           slot_number?: number
           spot_id?: string | null
+          spot_name_cached?: string | null
           toy_id?: string | null
           toy_name_cached?: string | null
         }
