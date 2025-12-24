@@ -99,6 +99,8 @@ export default function VisitReports() {
   const [selectedReports, setSelectedReports] = useState<Set<string>>(new Set());
   const [viewingReport, setViewingReport] = useState<VisitReport | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [rollbackNotes, setRollbackNotes] = useState('');
+  const [logBookEntries, setLogBookEntries] = useState<any[]>([]);
 
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
@@ -179,16 +181,66 @@ export default function VisitReports() {
     enabled: !!profile?.company_id,
   });
 
-  const deleteMutation = useMutation({
+  // Fetch log book entries for selected reports
+  const fetchLogBookEntries = async (reportIds: string[]) => {
+    const { data, error } = await supabase
+      .from('submit_report_log_book')
+      .select('*')
+      .in('visit_report_id', reportIds)
+      .eq('is_rolled_back', false);
+    
+    if (error) {
+      console.error('Error fetching log book entries:', error);
+      return [];
+    }
+    return data || [];
+  };
+
+  const rollbackMutation = useMutation({
+    mutationFn: async ({ logId, notes }: { logId: string; notes: string }) => {
+      const { data, error } = await supabase.rpc('rollback_visit_report', {
+        p_log_id: logId,
+        p_rollback_notes: notes || null,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['visit_reports'] });
+      queryClient.invalidateQueries({ queryKey: ['location_spots'] });
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
+      queryClient.invalidateQueries({ queryKey: ['machine_toy_slots'] });
+    },
+    onError: (error) => {
+      toast.error('Failed to rollback report: ' + error.message);
+    },
+  });
+
+  // Fallback delete for reports without log book entries
+  const directDeleteMutation = useMutation({
     mutationFn: async (reportIds: string[]) => {
-      // First delete associated stock records
+      // Delete machine_toy_movements
+      const { error: movementError } = await supabase
+        .from('machine_toy_movements')
+        .delete()
+        .in('visit_report_id', reportIds);
+      if (movementError) throw movementError;
+
+      // Delete visit_report_stock
       const { error: stockError } = await supabase
         .from('visit_report_stock')
         .delete()
         .in('visit_report_id', reportIds);
       if (stockError) throw stockError;
 
-      // Then delete the reports
+      // Delete from log book (if any exist)
+      const { error: logError } = await supabase
+        .from('submit_report_log_book')
+        .delete()
+        .in('visit_report_id', reportIds);
+      if (logError) console.warn('Log book cleanup warning:', logError);
+
+      // Delete the reports
       const { error } = await supabase
         .from('visit_reports')
         .delete()
@@ -197,9 +249,6 @@ export default function VisitReports() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['visit_reports'] });
-      setSelectedReports(new Set());
-      setDeleteConfirmOpen(false);
-      toast.success('Reports deleted successfully');
     },
     onError: (error) => {
       toast.error('Failed to delete reports: ' + error.message);
@@ -276,13 +325,60 @@ export default function VisitReports() {
     setSelectedReports(newSelected);
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedReports.size === 0) return;
+    
+    // Fetch log book entries for selected reports
+    const entries = await fetchLogBookEntries(Array.from(selectedReports));
+    setLogBookEntries(entries);
+    setRollbackNotes('');
     setDeleteConfirmOpen(true);
   };
 
-  const confirmDelete = () => {
-    deleteMutation.mutate(Array.from(selectedReports));
+  const confirmDelete = async () => {
+    const reportIds = Array.from(selectedReports);
+    
+    // Find which reports have log book entries
+    const reportsWithLogs = new Set(logBookEntries.map(e => e.visit_report_id));
+    const reportsWithoutLogs = reportIds.filter(id => !reportsWithLogs.has(id));
+    
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Rollback reports with log entries (proper revert)
+    for (const entry of logBookEntries) {
+      try {
+        await rollbackMutation.mutateAsync({ 
+          logId: entry.id, 
+          notes: rollbackNotes 
+        });
+        successCount++;
+      } catch (err) {
+        console.error('Rollback failed for log:', entry.id, err);
+        errorCount++;
+      }
+    }
+
+    // Direct delete for reports without log entries (older reports)
+    if (reportsWithoutLogs.length > 0) {
+      try {
+        await directDeleteMutation.mutateAsync(reportsWithoutLogs);
+        successCount += reportsWithoutLogs.length;
+      } catch (err) {
+        console.error('Direct delete failed:', err);
+        errorCount += reportsWithoutLogs.length;
+      }
+    }
+
+    setSelectedReports(new Set());
+    setDeleteConfirmOpen(false);
+    setLogBookEntries([]);
+
+    if (errorCount === 0) {
+      toast.success(`Successfully rolled back/deleted ${successCount} report(s)`);
+    } else {
+      toast.warning(`Completed with errors: ${successCount} succeeded, ${errorCount} failed`);
+    }
   };
 
   const exportToCSV = () => {
@@ -902,13 +998,77 @@ export default function VisitReports() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
+      {/* Rollback/Delete Confirmation Dialog */}
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Visit Reports?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete {selectedReports.size} report(s)? This action cannot be undone.
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5" />
+              Rollback Visit Reports
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  You are about to rollback {selectedReports.size} report(s). This will:
+                </p>
+                
+                <ul className="text-sm space-y-1 list-disc list-inside text-muted-foreground">
+                  <li>Revert machine slot stock levels to previous values</li>
+                  <li>Restore location & spot statistics</li>
+                  <li>Delete all related movements and stock records</li>
+                  <li>Remove the visit report(s)</li>
+                </ul>
+
+                {logBookEntries.length > 0 && (
+                  <div className="p-3 bg-muted/50 rounded-lg border space-y-2">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-foreground">Log Book Entries</div>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {logBookEntries.map((entry) => {
+                        const report = visitReports?.find(r => r.id === entry.visit_report_id);
+                        return (
+                          <div key={entry.id} className="text-xs p-2 bg-background rounded border">
+                            <div className="flex justify-between items-start gap-2">
+                              <div>
+                                <span className="font-medium">{report?.location_name_snapshot || 'Unknown Location'}</span>
+                                {report?.spot_name_snapshot && (
+                                  <span className="text-muted-foreground"> • {report.spot_name_snapshot}</span>
+                                )}
+                              </div>
+                              <span className="text-muted-foreground whitespace-nowrap">
+                                {format(new Date(entry.submitted_at), 'MMM d, yyyy')}
+                              </span>
+                            </div>
+                            <div className="text-muted-foreground mt-1">
+                              {entry.created_machine_toy_movement_ids?.length || 0} movements • 
+                              {entry.created_visit_report_stock_ids?.length || 0} stock records
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {logBookEntries.length === 0 && selectedReports.size > 0 && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                    <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span>No log book entries found. Direct delete will be used (stats won't be reverted).</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground">Rollback Notes (optional)</label>
+                  <textarea
+                    value={rollbackNotes}
+                    onChange={(e) => setRollbackNotes(e.target.value)}
+                    placeholder="Reason for rollback..."
+                    className="w-full px-3 py-2 text-sm border rounded-lg bg-background resize-none"
+                    rows={2}
+                  />
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -916,8 +1076,19 @@ export default function VisitReports() {
             <AlertDialogAction
               onClick={confirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={rollbackMutation.isPending || directDeleteMutation.isPending}
             >
-              Delete
+              {(rollbackMutation.isPending || directDeleteMutation.isPending) ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Rollback & Delete
+                </>
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
