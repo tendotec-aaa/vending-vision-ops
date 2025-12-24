@@ -42,10 +42,7 @@ interface MachineSlot {
   current_stock?: number | null;
   capacity?: number | null;
   price_per_unit?: number | null;
-  toys?: {
-    id: string;
-    name: string;
-  } | null;
+  toy_name_cached?: string | null;
 }
 
 interface Product {
