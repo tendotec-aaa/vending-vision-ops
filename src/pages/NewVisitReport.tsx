@@ -321,7 +321,7 @@ export default function NewVisitReport() {
     queryFn: async () => {
       const { data } = await supabase
         .from('machine_toy_slots')
-        .select('id, machine_id, slot_number, toy_id, current_stock, capacity, price_per_unit, location_id, spot_id, last_refill_date, toys(id, name, cogs)')
+        .select('id, machine_id, slot_number, toy_id, toy_name_cached, current_stock, capacity, price_per_unit, location_id, spot_id, last_refill_date')
         .eq('company_id', profile?.company_id);
       return data || [];
     },
@@ -441,7 +441,9 @@ export default function NewVisitReport() {
 
       const slots: ToySlotAudit[] = Array.from({ length: slotCount }, (_, i) => {
         const existingSlot = slotsForMachine.find(s => s.slot_number === i + 1);
-        const toy = existingSlot?.toys;
+        // Use cached name or look up from products
+        const toyName = existingSlot?.toy_name_cached || 
+          products?.find(p => p.id === existingSlot?.toy_id)?.product_name || '';
         
         // Get last stock from previous visit report using new schema
         const lastStockRecord = lastVisitReport?.visit_report_stock?.find(
@@ -457,7 +459,7 @@ export default function NewVisitReport() {
         return {
           slot_id: existingSlot?.id || null,
           toy_id: existingSlot?.toy_id || '',
-          toy_name: toy?.name || '',
+          toy_name: toyName,
           slot_number: i + 1,
           last_stock: lastStock,
           units_sold: 0,

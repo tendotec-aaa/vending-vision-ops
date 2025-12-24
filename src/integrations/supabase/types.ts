@@ -464,13 +464,6 @@ export type Database = {
             referencedRelation: "location_spots"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "machine_toy_slots_toy_id_fkey"
-            columns: ["toy_id"]
-            isOneToOne: false
-            referencedRelation: "toys"
-            referencedColumns: ["id"]
-          },
         ]
       }
       machines: {

@@ -2,18 +2,13 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Package, AlertTriangle } from 'lucide-react';
 
-interface Toy {
-  id: string;
-  name: string;
-}
-
 interface ToySlot {
   id: string;
   slot_number: number;
   toy_id: string | null;
   capacity?: number | null;
   current_stock?: number | null;
-  toys?: Toy | null;
+  toy_name_cached?: string | null;
 }
 
 interface Props {
@@ -61,8 +56,8 @@ export function ReadOnlySlotDisplay({ slots, slotCount }: Props) {
               <p className="text-xs text-muted-foreground italic">Empty</p>
             ) : (
               <div className="space-y-1">
-                <p className="text-xs font-medium truncate" title={slot?.toys?.name}>
-                  {slot?.toys?.name || 'Unknown Toy'}
+                <p className="text-xs font-medium truncate" title={slot?.toy_name_cached || undefined}>
+                  {slot?.toy_name_cached || 'Unknown Toy'}
                 </p>
                 <div className="flex items-center justify-between text-xs">
                   <span className={`${isLowStock ? 'text-red-600' : 'text-muted-foreground'}`}>

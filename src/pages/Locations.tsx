@@ -134,7 +134,7 @@ export default function Locations() {
     queryFn: async () => {
       const { data } = await supabase
         .from('machine_toy_slots')
-        .select('*, toys(id, name)')
+        .select('*')
         .eq('company_id', profile?.company_id);
       return data || [];
     },
