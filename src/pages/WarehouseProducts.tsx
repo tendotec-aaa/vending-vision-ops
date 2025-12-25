@@ -12,8 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Download, Package2, DollarSign, TrendingUp, Boxes, RefreshCw } from "lucide-react";
+import { Plus, Download, Package2, DollarSign, TrendingUp, Boxes, RefreshCw, PackagePlus } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 const PRODUCT_TYPES = ["Toys", "Spare Parts", "Stickers", "Other"] as const;
 
@@ -27,6 +28,7 @@ export default function WarehouseProducts() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [isOpen, setIsOpen] = useState(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [isAddStockOpen, setIsAddStockOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [formData, setFormData] = useState({
     product_name: "",
@@ -35,6 +37,11 @@ export default function WarehouseProducts() {
     product_category_id: "",
     cogs: "",
     quantity_bodega: "",
+  });
+  const [addStockData, setAddStockData] = useState({
+    product_id: "",
+    quantity: "",
+    notes: "",
   });
 
   const { data: profile } = useQuery({
@@ -131,6 +138,45 @@ export default function WarehouseProducts() {
     }
   });
 
+  const addStockMutation = useMutation({
+    mutationFn: async (data: typeof addStockData) => {
+      const quantity = parseInt(data.quantity);
+      if (isNaN(quantity) || quantity <= 0) {
+        throw new Error("Please enter a valid quantity");
+      }
+      
+      // Get current product quantities
+      const { data: product, error: fetchError } = await supabase
+        .from('products')
+        .select('quantity_bodega, quantity_purchased')
+        .eq('id', data.product_id)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      // Update with new quantities
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({
+          quantity_bodega: (product?.quantity_bodega || 0) + quantity,
+          quantity_purchased: (product?.quantity_purchased || 0) + quantity,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', data.product_id);
+      
+      if (updateError) throw updateError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast({ title: "Stock added successfully" });
+      setIsAddStockOpen(false);
+      setAddStockData({ product_id: "", quantity: "", notes: "" });
+    },
+    onError: (error) => {
+      toast({ title: "Error adding stock", description: error.message, variant: "destructive" });
+    }
+  });
+
   const filteredProducts = products?.filter((prod) => {
     const matchesSearch = prod.product_name.toLowerCase().includes(search.toLowerCase());
     const matchesType = filterType === "all" || prod.product_type === filterType;
@@ -214,6 +260,67 @@ export default function WarehouseProducts() {
               <Download className="h-4 w-4 mr-2" />
               Export CSV
             </Button>
+            <Dialog open={isAddStockOpen} onOpenChange={setIsAddStockOpen}>
+              <DialogTrigger asChild>
+                <Button variant="secondary">
+                  <PackagePlus className="h-4 w-4 mr-2" />
+                  Add Stock
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Add Stock to Bodega</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="stock_product">Product</Label>
+                    <Select 
+                      value={addStockData.product_id} 
+                      onValueChange={(v) => setAddStockData({ ...addStockData, product_id: v })}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select product" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50 max-h-[300px]">
+                        {products?.map(prod => (
+                          <SelectItem key={prod.id} value={prod.id}>
+                            {prod.product_name} (Current: {prod.quantity_bodega})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="stock_quantity">Quantity to Add</Label>
+                    <Input
+                      id="stock_quantity"
+                      type="number"
+                      min="1"
+                      value={addStockData.quantity}
+                      onChange={(e) => setAddStockData({ ...addStockData, quantity: e.target.value })}
+                      placeholder="Enter quantity"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="stock_notes">Notes (Optional)</Label>
+                    <Textarea
+                      id="stock_notes"
+                      value={addStockData.notes}
+                      onChange={(e) => setAddStockData({ ...addStockData, notes: e.target.value })}
+                      placeholder="e.g., Purchase order #123, Supplier delivery"
+                      rows={2}
+                    />
+                  </div>
+                  <Button
+                    className="w-full"
+                    onClick={() => addStockMutation.mutate(addStockData)}
+                    disabled={!addStockData.product_id || !addStockData.quantity || addStockMutation.isPending}
+                  >
+                    {addStockMutation.isPending ? "Adding..." : "Add Stock"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
               <DialogTrigger asChild>
                 <Button>
