@@ -1417,6 +1417,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      recalculate_product_stats: {
+        Args: { p_company_id: string }
+        Returns: undefined
+      }
       rollback_visit_report: {
         Args: { p_log_id: string; p_rollback_notes?: string }
         Returns: boolean

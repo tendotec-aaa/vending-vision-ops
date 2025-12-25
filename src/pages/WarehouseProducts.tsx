@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Download, Package2, DollarSign, TrendingUp, Boxes } from "lucide-react";
+import { Plus, Download, Package2, DollarSign, TrendingUp, Boxes, RefreshCw } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const PRODUCT_TYPES = ["Toys", "Spare Parts", "Stickers", "Other"] as const;
 
@@ -114,6 +115,22 @@ export default function WarehouseProducts() {
     },
   });
 
+  const recalculateMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('recalculate_product_stats', {
+        p_company_id: profile?.company_id
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast({ title: "Product stats recalculated successfully" });
+    },
+    onError: (error) => {
+      toast({ title: "Error recalculating stats", description: error.message, variant: "destructive" });
+    }
+  });
+
   const filteredProducts = products?.filter((prod) => {
     const matchesSearch = prod.product_name.toLowerCase().includes(search.toLowerCase());
     const matchesType = filterType === "all" || prod.product_type === filterType;
@@ -169,6 +186,30 @@ export default function WarehouseProducts() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h1 className="text-3xl font-bold">Products</h1>
           <div className="flex gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={recalculateMutation.isPending}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${recalculateMutation.isPending ? 'animate-spin' : ''}`} />
+                  Recalculate
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Recalculate Product Stats?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will recalculate all product statistics (In Machines, Sold, +/- Diff, Total Sales) 
+                    based on current machine slots and movement history. Use this after a rollback or if 
+                    stats appear incorrect.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => recalculateMutation.mutate()}>
+                    Recalculate
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Button variant="outline" onClick={exportToCSV} disabled={!filteredProducts?.length}>
               <Download className="h-4 w-4 mr-2" />
               Export CSV
