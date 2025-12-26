@@ -921,6 +921,7 @@ export default function NewVisitReport() {
         const workOrdersToInsert = issuesForWorkOrders.map(issue => ({
           company_id: profile?.company_id!,
           location_id: selectedLocation,
+          spot_id: selectedSpot,
           issue_type: `Slot Issue - ${issue.machine_serial} Slot #${issue.slot_number}`,
           description: issue.description,
           status: 'pending',
@@ -943,6 +944,7 @@ export default function NewVisitReport() {
           .insert({
             company_id: profile?.company_id!,
             location_id: selectedLocation,
+            spot_id: selectedSpot,
             issue_type: 'Observation',
             description: observation,
             status: 'pending',
