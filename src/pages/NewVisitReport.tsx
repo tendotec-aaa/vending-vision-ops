@@ -796,7 +796,7 @@ export default function NewVisitReport() {
 
       // Build the slot_performance_snapshot JSONB array with all snapshot fields
       const slotPerformanceSnapshot: any[] = [];
-      const issuesForWorkOrders: { machine_serial: string; slot_number: number; description: string; severity: string }[] = [];
+      const issuesForWorkOrders: { machine_id: string; machine_serial: string; slot_number: number; slot_id: string; description: string; severity: string; toy_name: string }[] = [];
       
       machineAudits.forEach(machine => {
         machine.slots.forEach(slot => {
@@ -860,10 +860,13 @@ export default function NewVisitReport() {
             // Collect issues for work orders
             if (slot.has_issue && slot.issue_description) {
               issuesForWorkOrders.push({
+                machine_id: machine.machine_id,
                 machine_serial: machine.serial_number,
                 slot_number: slot.slot_number,
+                slot_id: slot.slot_id,
                 description: slot.issue_description,
                 severity: slot.issue_severity,
+                toy_name: product?.product_name || slot.toy_name || 'Unknown',
               });
             }
           }
@@ -918,13 +921,30 @@ export default function NewVisitReport() {
 
       // Create work orders for issues reported on slots
       if (issuesForWorkOrders.length > 0) {
+        const setupName = selectedSpotData?.setup_id 
+          ? setups?.find(s => s.id === selectedSpotData.setup_id)?.name 
+          : null;
+        
         const workOrdersToInsert = issuesForWorkOrders.map(issue => ({
           company_id: profile?.company_id!,
           location_id: selectedLocation,
           spot_id: selectedSpot,
+          setup_id: selectedSpotData?.setup_id || null,
+          machine_id: issue.machine_id,
+          visit_report_id: report.id,
+          employee_id: user!.id,
           issue_type: `Slot Issue - ${issue.machine_serial} Slot #${issue.slot_number}`,
           description: issue.description,
           status: 'pending',
+          // Human-readable snapshots for CSV export
+          location_name_snapshot: selectedLocationData?.name || 'Unknown',
+          spot_name_snapshot: selectedSpotData?.place_name || `Spot #${selectedSpotData?.spot_number}`,
+          setup_name_snapshot: setupName || null,
+          machine_serial_snapshot: issue.machine_serial,
+          employee_name_snapshot: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Unknown',
+          visit_date_snapshot: new Date(visitDate).toISOString(),
+          slot_number_snapshot: issue.slot_number,
+          toy_name_snapshot: issue.toy_name,
         }));
         
         const { data: workOrders } = await supabase
@@ -939,15 +959,28 @@ export default function NewVisitReport() {
       
       // Create work order for observation if flagged
       if (hasObservation && observation) {
+        const setupName = selectedSpotData?.setup_id 
+          ? setups?.find(s => s.id === selectedSpotData.setup_id)?.name 
+          : null;
+        
         const { data: obsWorkOrder } = await supabase
           .from('work_orders')
           .insert({
             company_id: profile?.company_id!,
             location_id: selectedLocation,
             spot_id: selectedSpot,
+            setup_id: selectedSpotData?.setup_id || null,
+            visit_report_id: report.id,
+            employee_id: user!.id,
             issue_type: 'Observation',
             description: observation,
             status: 'pending',
+            // Human-readable snapshots for CSV export
+            location_name_snapshot: selectedLocationData?.name || 'Unknown',
+            spot_name_snapshot: selectedSpotData?.place_name || `Spot #${selectedSpotData?.spot_number}`,
+            setup_name_snapshot: setupName || null,
+            employee_name_snapshot: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Unknown',
+            visit_date_snapshot: new Date(visitDate).toISOString(),
           })
           .select('id')
           .single();
