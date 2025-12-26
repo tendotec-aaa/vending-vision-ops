@@ -448,15 +448,9 @@ export default function NewVisitReport() {
         const toyName = existingSlot?.toy_name_cached || 
           products?.find(p => p.id === existingSlot?.toy_id)?.product_name || '';
         
-        // Get last stock from previous visit report using new schema
-        const lastStockRecord = lastVisitReport?.visit_report_stock?.find(
-          (vrs: any) => vrs.machine_id === machine.id && vrs.slot_position_snapshot === `Slot ${i + 1}`
-        );
-        // Calculate last stock: capacity - sold + refilled - removed + variance
-        const lastStock = lastStockRecord 
-          ? Math.max(0, (lastStockRecord.capacity_snapshot || 0) - (lastStockRecord.units_sold || 0) + (lastStockRecord.units_refilled || 0) - (lastStockRecord.units_removed || 0) + (lastStockRecord.units_shortage_surplus || 0))
-          : (existingSlot?.current_stock ?? 0);
-        
+        // Last stock should reflect the most recent known stock per slot.
+        // Source of truth: machine_toy_slots.current_stock (already updated after each submitted visit).
+        const lastStock = existingSlot?.current_stock ?? 0;
         const existingCapacity = existingSlot?.capacity ?? 20;
         const existingPrice = existingSlot?.price_per_unit ?? 1.00;
         return {
@@ -493,7 +487,7 @@ export default function NewVisitReport() {
     }).filter(Boolean) as MachineAudit[];
 
     setMachineAudits(audits);
-  }, [selectedSpot, locationSpots, setupMachines, machineSlots, lastVisitReport]);
+  }, [selectedSpot, locationSpots, setupMachines, machineSlots, products]);
 
   // Calculate total cash recollected - using price_per_unit from each slot
   const totalCashRecollected = useMemo(() => {
