@@ -317,15 +317,17 @@ export default function NewVisitReport() {
   });
 
   const { data: machineSlots } = useQuery({
-    queryKey: ['machine_slots', profile?.company_id],
+    queryKey: ['machine_slots', profile?.company_id, selectedSpot],
     queryFn: async () => {
+      if (!selectedSpot) return [];
       const { data } = await supabase
         .from('machine_toy_slots')
         .select('id, machine_id, slot_number, toy_id, toy_name_cached, current_stock, capacity, price_per_unit, location_id, spot_id, last_refill_date')
-        .eq('company_id', profile?.company_id);
+        .eq('company_id', profile?.company_id)
+        .eq('spot_id', selectedSpot);
       return data || [];
     },
-    enabled: !!profile?.company_id,
+    enabled: !!profile?.company_id && !!selectedSpot,
   });
 
   const { data: products } = useQuery({
@@ -440,7 +442,8 @@ export default function NewVisitReport() {
       const slotCount = machine.slots_per_machine || 8;
 
       const slots: ToySlotAudit[] = Array.from({ length: slotCount }, (_, i) => {
-        const existingSlot = slotsForMachine.find(s => s.slot_number === i + 1);
+        // Match by machine_id AND slot_number for precise slot identification
+        const existingSlot = slotsForMachine.find(s => s.machine_id === machine.id && s.slot_number === i + 1);
         // Use cached name or look up from products
         const toyName = existingSlot?.toy_name_cached || 
           products?.find(p => p.id === existingSlot?.toy_id)?.product_name || '';
