@@ -1304,7 +1304,7 @@ export default function NewVisitReport() {
                   <div className="text-xs text-muted-foreground">Last Visit</div>
                   <div className="font-bold">
                     {selectedSpotData.spot_last_visit_report 
-                      ? format(new Date(selectedSpotData.spot_last_visit_report), 'MMM d')
+                      ? format(new Date(selectedSpotData.spot_last_visit_report), 'MMM d, yyyy')
                       : 'Never'}
                   </div>
                 </div>
