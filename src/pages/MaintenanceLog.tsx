@@ -298,14 +298,15 @@ export default function MaintenanceLog() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                {/* Use snapshot data when available, fallback to lookup */}
                 <div className="flex flex-wrap gap-2 text-sm">
                   <span className="flex items-center gap-1 text-muted-foreground">
                     <MapPin className="h-3 w-3" />
-                    {locationsMap[order.location_id]}
+                    {order.location_name_snapshot || locationsMap[order.location_id]}
                   </span>
-                  {order.spot_id && spotsMap[order.spot_id] && (
+                  {(order.spot_name_snapshot || (order.spot_id && spotsMap[order.spot_id])) && (
                     <span className="flex items-center gap-1 text-muted-foreground">
-                      • Spot {spotsMap[order.spot_id]}
+                      • Spot {order.spot_name_snapshot || spotsMap[order.spot_id]}
                     </span>
                   )}
                   <span className="flex items-center gap-1 text-muted-foreground">
@@ -313,6 +314,46 @@ export default function MaintenanceLog() {
                     {format(new Date(order.created_at), 'MMM d, yyyy')}
                   </span>
                 </div>
+                
+                {/* Show machine & slot info if from visit report */}
+                {(order.machine_serial_snapshot || order.slot_number_snapshot || order.setup_name_snapshot) && (
+                  <div className="flex flex-wrap gap-2 text-sm bg-muted/50 p-2 rounded">
+                    {order.setup_name_snapshot && (
+                      <span className="text-muted-foreground">
+                        <strong>Setup:</strong> {order.setup_name_snapshot}
+                      </span>
+                    )}
+                    {order.machine_serial_snapshot && (
+                      <span className="text-muted-foreground">
+                        <strong>Machine:</strong> {order.machine_serial_snapshot}
+                      </span>
+                    )}
+                    {order.slot_number_snapshot && (
+                      <span className="text-muted-foreground">
+                        <strong>Slot:</strong> #{order.slot_number_snapshot}
+                      </span>
+                    )}
+                    {order.toy_name_snapshot && (
+                      <span className="text-muted-foreground">
+                        <strong>Product:</strong> {order.toy_name_snapshot}
+                      </span>
+                    )}
+                  </div>
+                )}
+                
+                {/* Show who reported and when */}
+                {(order.employee_name_snapshot || order.visit_date_snapshot) && (
+                  <div className="text-xs text-muted-foreground">
+                    {order.employee_name_snapshot && (
+                      <span>Reported by: <strong>{order.employee_name_snapshot}</strong></span>
+                    )}
+                    {order.visit_date_snapshot && (
+                      <span className="ml-2">
+                        on {format(new Date(order.visit_date_snapshot), 'MMM d, yyyy h:mm a')}
+                      </span>
+                    )}
+                  </div>
+                )}
                 
                 {order.description && (
                   <p className="text-sm text-muted-foreground">{order.description}</p>

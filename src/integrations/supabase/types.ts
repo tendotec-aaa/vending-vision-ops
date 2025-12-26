@@ -1369,13 +1369,25 @@ export type Database = {
           cost: number | null
           created_at: string
           description: string | null
+          employee_id: string | null
+          employee_name_snapshot: string | null
           id: string
           issue_type: string
           location_id: string
+          location_name_snapshot: string | null
+          machine_id: string | null
+          machine_serial_snapshot: string | null
           resolved_at: string | null
+          setup_id: string | null
+          setup_name_snapshot: string | null
+          slot_number_snapshot: number | null
           spot_id: string | null
+          spot_name_snapshot: string | null
           status: string | null
+          toy_name_snapshot: string | null
           updated_at: string
+          visit_date_snapshot: string | null
+          visit_report_id: string | null
         }
         Insert: {
           assigned_to?: string | null
@@ -1383,13 +1395,25 @@ export type Database = {
           cost?: number | null
           created_at?: string
           description?: string | null
+          employee_id?: string | null
+          employee_name_snapshot?: string | null
           id?: string
           issue_type: string
           location_id: string
+          location_name_snapshot?: string | null
+          machine_id?: string | null
+          machine_serial_snapshot?: string | null
           resolved_at?: string | null
+          setup_id?: string | null
+          setup_name_snapshot?: string | null
+          slot_number_snapshot?: number | null
           spot_id?: string | null
+          spot_name_snapshot?: string | null
           status?: string | null
+          toy_name_snapshot?: string | null
           updated_at?: string
+          visit_date_snapshot?: string | null
+          visit_report_id?: string | null
         }
         Update: {
           assigned_to?: string | null
@@ -1397,20 +1421,53 @@ export type Database = {
           cost?: number | null
           created_at?: string
           description?: string | null
+          employee_id?: string | null
+          employee_name_snapshot?: string | null
           id?: string
           issue_type?: string
           location_id?: string
+          location_name_snapshot?: string | null
+          machine_id?: string | null
+          machine_serial_snapshot?: string | null
           resolved_at?: string | null
+          setup_id?: string | null
+          setup_name_snapshot?: string | null
+          slot_number_snapshot?: number | null
           spot_id?: string | null
+          spot_name_snapshot?: string | null
           status?: string | null
+          toy_name_snapshot?: string | null
           updated_at?: string
+          visit_date_snapshot?: string | null
+          visit_report_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "work_orders_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_setup_id_fkey"
+            columns: ["setup_id"]
+            isOneToOne: false
+            referencedRelation: "setups"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "work_orders_spot_id_fkey"
             columns: ["spot_id"]
             isOneToOne: false
             referencedRelation: "location_spots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_visit_report_id_fkey"
+            columns: ["visit_report_id"]
+            isOneToOne: false
+            referencedRelation: "visit_reports"
             referencedColumns: ["id"]
           },
         ]
