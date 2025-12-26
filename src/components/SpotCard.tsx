@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import {
   CollapsibleTrigger 
 } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { ChevronDown, Cpu, Edit2, Check, X, Hash, Package, DollarSign, Calendar, AlertTriangle, TrendingUp, Clock } from 'lucide-react';
+import { ChevronDown, Cpu, Edit2, Check, X, Hash, Package, DollarSign, Calendar, AlertTriangle, TrendingUp, Clock, Wrench } from 'lucide-react';
 import { AssignSetupDialog } from './AssignSetupDialog';
 import { ReadOnlySlotDisplay } from './ReadOnlySlotDisplay';
 import { format, differenceInDays } from 'date-fns';
@@ -89,6 +90,7 @@ export function SpotCard({
   allSpots,
   locationStartDate
 }: SpotCardProps) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -182,9 +184,17 @@ export function SpotCard({
               </div>
               <div className="flex items-center gap-2">
                 {(spot.spot_open_maintenance_tickets ?? 0) > 0 && (
-                  <Badge variant="destructive" className="text-xs">
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    {spot.spot_open_maintenance_tickets}
+                  <Badge 
+                    variant="destructive" 
+                    className="text-xs cursor-pointer animate-pulse hover:animate-none flex items-center gap-1 px-2 py-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate('/maintenance');
+                    }}
+                  >
+                    <Wrench className="h-3 w-3" />
+                    <AlertTriangle className="h-3 w-3" />
+                    {spot.spot_open_maintenance_tickets} Open {spot.spot_open_maintenance_tickets === 1 ? 'Ticket' : 'Tickets'}
                   </Badge>
                 )}
                 {isProfitable ? (

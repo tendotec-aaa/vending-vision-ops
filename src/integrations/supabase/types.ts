@@ -1373,6 +1373,7 @@ export type Database = {
           issue_type: string
           location_id: string
           resolved_at: string | null
+          spot_id: string | null
           status: string | null
           updated_at: string
         }
@@ -1386,6 +1387,7 @@ export type Database = {
           issue_type: string
           location_id: string
           resolved_at?: string | null
+          spot_id?: string | null
           status?: string | null
           updated_at?: string
         }
@@ -1399,10 +1401,19 @@ export type Database = {
           issue_type?: string
           location_id?: string
           resolved_at?: string | null
+          spot_id?: string | null
           status?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "work_orders_spot_id_fkey"
+            columns: ["spot_id"]
+            isOneToOne: false
+            referencedRelation: "location_spots"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
