@@ -20,6 +20,7 @@ import WarehouseProducts from "./pages/WarehouseProducts";
 import ProductDetail from "./pages/ProductDetail";
 import Suppliers from "./pages/Suppliers";
 import Purchases from "./pages/Purchases";
+import NewPurchase from "./pages/NewPurchase";
 import Compliance from "./pages/Compliance";
 import CustomerFeedback from "./pages/CustomerFeedback";
 import MarketingPromotions from "./pages/MarketingPromotions";
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/warehouse/products/:id" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
             <Route path="/suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
             <Route path="/purchases" element={<ProtectedRoute><Purchases /></ProtectedRoute>} />
+            <Route path="/purchases/new" element={<ProtectedRoute><NewPurchase /></ProtectedRoute>} />
             <Route path="/compliance" element={<ProtectedRoute><Compliance /></ProtectedRoute>} />
             <Route path="/feedback" element={<ProtectedRoute><CustomerFeedback /></ProtectedRoute>} />
             <Route path="/promotions" element={<ProtectedRoute><MarketingPromotions /></ProtectedRoute>} />

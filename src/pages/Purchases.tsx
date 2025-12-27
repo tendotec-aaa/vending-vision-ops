@@ -1,13 +1,15 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { MobileNav } from "@/components/MobileNav";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Plus } from "lucide-react";
 
 export default function Purchases() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
@@ -37,9 +39,22 @@ export default function Purchases() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="container mx-auto p-4 space-y-6">
-        <h1 className="text-3xl font-bold">Purchase History</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Purchase History</h1>
+          <Button onClick={() => navigate("/purchases/new")}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Purchase
+          </Button>
+        </div>
 
         <div className="grid gap-4">
+          {purchases?.length === 0 && (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                No purchases yet. Click "New Purchase" to add one.
+              </CardContent>
+            </Card>
+          )}
           {purchases?.map((purchase) => (
             <Card key={purchase.id}>
               <CardHeader>
