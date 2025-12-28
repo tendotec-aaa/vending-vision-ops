@@ -709,6 +709,7 @@ export type Database = {
           company_id: string
           id: string
           item_name: string
+          product_id: string | null
           purchase_id: string
           quantity: number
           unit_cost: number
@@ -717,6 +718,7 @@ export type Database = {
           company_id: string
           id?: string
           item_name: string
+          product_id?: string | null
           purchase_id: string
           quantity: number
           unit_cost: number
@@ -725,11 +727,20 @@ export type Database = {
           company_id?: string
           id?: string
           item_name?: string
+          product_id?: string | null
           purchase_id?: string
           quantity?: number
           unit_cost?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "purchase_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       purchases: {
         Row: {

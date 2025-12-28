@@ -10,11 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Trash2, Package, DollarSign, Truck } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Package, DollarSign, Truck, Link } from "lucide-react";
 
 interface PurchaseItem {
   id: string;
   item_name: string;
+  product_id: string | null;
   quantity: number;
   unit_cost: number;
 }
@@ -50,7 +51,7 @@ export default function NewPurchase() {
   const [shippingCost, setShippingCost] = useState<string>("0");
   const [dutiesTaxes, setDutiesTaxes] = useState<string>("0");
   const [items, setItems] = useState<PurchaseItem[]>([
-    { id: crypto.randomUUID(), item_name: "", quantity: 1, unit_cost: 0 },
+    { id: crypto.randomUUID(), item_name: "", product_id: null, quantity: 1, unit_cost: 0 },
   ]);
 
   const { data: profile } = useQuery({
@@ -78,6 +79,19 @@ export default function NewPurchase() {
     enabled: !!profile?.company_id,
   });
 
+  const { data: products } = useQuery({
+    queryKey: ["products", profile?.company_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("products")
+        .select("id, product_name, cogs")
+        .eq("company_id", profile?.company_id)
+        .order("product_name");
+      return data || [];
+    },
+    enabled: !!profile?.company_id,
+  });
+
   const itemsSubtotal = useMemo(() => {
     return items.reduce((sum, item) => sum + item.quantity * item.unit_cost, 0);
   }, [items]);
@@ -89,7 +103,7 @@ export default function NewPurchase() {
   const addItem = () => {
     setItems([
       ...items,
-      { id: crypto.randomUUID(), item_name: "", quantity: 1, unit_cost: 0 },
+      { id: crypto.randomUUID(), item_name: "", product_id: null, quantity: 1, unit_cost: 0 },
     ]);
   };
 
@@ -99,11 +113,26 @@ export default function NewPurchase() {
     }
   };
 
-  const updateItem = (id: string, field: keyof PurchaseItem, value: string | number) => {
+  const updateItem = (id: string, field: keyof PurchaseItem, value: string | number | null) => {
     setItems(
-      items.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
+      items.map((item) => {
+        if (item.id !== id) return item;
+        
+        // If selecting a product, auto-fill the name and cost
+        if (field === "product_id" && value) {
+          const product = products?.find((p) => p.id === value);
+          if (product) {
+            return {
+              ...item,
+              product_id: value as string,
+              item_name: product.product_name,
+              unit_cost: Number(product.cogs) || item.unit_cost,
+            };
+          }
+        }
+        
+        return { ...item, [field]: value };
+      })
     );
   };
 
@@ -135,13 +164,14 @@ export default function NewPurchase() {
 
       if (purchaseError) throw purchaseError;
 
-      // Create purchase items
+      // Create purchase items (trigger will auto-update inventory for linked products)
       const purchaseItems = items
         .filter((item) => item.item_name.trim())
         .map((item) => ({
           company_id: profile.company_id,
           purchase_id: purchase.id,
           item_name: item.item_name.trim(),
+          product_id: item.product_id,
           quantity: item.quantity,
           unit_cost: item.unit_cost,
         }));
@@ -157,6 +187,7 @@ export default function NewPurchase() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       toast({ title: "Purchase created successfully" });
       navigate("/purchases");
     },
@@ -270,61 +301,102 @@ export default function NewPurchase() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            {items.map((item, index) => (
+            <div className="text-xs text-muted-foreground flex items-center gap-1 mb-2">
+              <Link className="h-3 w-3" />
+              Link items to products to automatically update warehouse inventory
+            </div>
+            
+            {items.map((item) => (
               <div
                 key={item.id}
-                className="grid grid-cols-12 gap-2 items-end p-3 bg-muted/30 rounded-lg"
+                className="space-y-3 p-4 bg-muted/30 rounded-lg"
               >
-                <div className="col-span-12 md:col-span-5 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Item Name</Label>
-                  <Input
-                    placeholder="Item name"
-                    value={item.item_name}
-                    onChange={(e) =>
-                      updateItem(item.id, "item_name", e.target.value)
+                {/* Product Link */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Link className="h-3 w-3" />
+                    Link to Product (optional)
+                  </Label>
+                  <Select
+                    value={item.product_id || "none"}
+                    onValueChange={(value) =>
+                      updateItem(item.id, "product_id", value === "none" ? null : value)
                     }
-                  />
+                  >
+                    <SelectTrigger className={item.product_id ? "border-primary/50 bg-primary/5" : ""}>
+                      <SelectValue placeholder="Select product to link" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No product link (manual entry)</SelectItem>
+                      {products?.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.product_name} (COGS: ${product.cogs})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="col-span-4 md:col-span-2 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Qty</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={item.quantity}
-                    onChange={(e) =>
-                      updateItem(item.id, "quantity", parseInt(e.target.value) || 1)
-                    }
-                  />
-                </div>
-                <div className="col-span-4 md:col-span-2 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Unit Cost</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.unit_cost}
-                    onChange={(e) =>
-                      updateItem(item.id, "unit_cost", parseFloat(e.target.value) || 0)
-                    }
-                  />
-                </div>
-                <div className="col-span-3 md:col-span-2 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Subtotal</Label>
-                  <div className="h-10 flex items-center px-3 bg-background border rounded-md text-sm font-medium">
-                    ${(item.quantity * item.unit_cost).toFixed(2)}
+
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-12 md:col-span-5 space-y-1">
+                    <Label className="text-xs text-muted-foreground">Item Name *</Label>
+                    <Input
+                      placeholder="Item name"
+                      value={item.item_name}
+                      onChange={(e) =>
+                        updateItem(item.id, "item_name", e.target.value)
+                      }
+                      disabled={!!item.product_id}
+                      className={item.product_id ? "bg-muted" : ""}
+                    />
+                  </div>
+                  <div className="col-span-4 md:col-span-2 space-y-1">
+                    <Label className="text-xs text-muted-foreground">Qty</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateItem(item.id, "quantity", parseInt(e.target.value) || 1)
+                      }
+                    />
+                  </div>
+                  <div className="col-span-4 md:col-span-2 space-y-1">
+                    <Label className="text-xs text-muted-foreground">Unit Cost</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.unit_cost}
+                      onChange={(e) =>
+                        updateItem(item.id, "unit_cost", parseFloat(e.target.value) || 0)
+                      }
+                    />
+                  </div>
+                  <div className="col-span-3 md:col-span-2 space-y-1">
+                    <Label className="text-xs text-muted-foreground">Subtotal</Label>
+                    <div className="h-10 flex items-center px-3 bg-background border rounded-md text-sm font-medium">
+                      ${(item.quantity * item.unit_cost).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="col-span-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeItem(item.id)}
+                      disabled={items.length === 1}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-                <div className="col-span-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeItem(item.id)}
-                    disabled={items.length === 1}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                
+                {item.product_id && (
+                  <p className="text-xs text-primary">
+                    ✓ This item will add {item.quantity} units to warehouse inventory
+                  </p>
+                )}
               </div>
             ))}
 
