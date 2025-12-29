@@ -11,8 +11,27 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Trash2, Package, DollarSign, Truck, Link, Globe, MapPin, Warehouse, Calculator, Scale, Hash, Boxes } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Package, DollarSign, Truck, Link, Globe, MapPin, Warehouse, Calculator, Hash, Boxes, Box } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+interface ItemFee {
+  id: string;
+  name: string;
+  amount: number;
+}
 
 interface PurchaseItem {
   id: string;
@@ -22,30 +41,22 @@ interface PurchaseItem {
   subcategory_id: string | null;
   quantity: number;
   unit_cost: number;
-  item_fees: number;
-  weight_kg: number;
+  cbm: number;
   sku: string;
+  fees: ItemFee[];
 }
 
 interface GlobalFee {
   id: string;
   name: string;
   amount: number;
+  distribution_method: string;
 }
-
-const PURCHASE_TYPES = [
-  "Toys",
-  "Components",
-  "Machines",
-  "Parts",
-  "Supplies",
-  "Other",
-];
 
 const FEE_DISTRIBUTION_METHODS = [
   { value: "by_value", label: "By Value", icon: DollarSign, description: "Proportional to item cost" },
   { value: "by_quantity", label: "By Quantity", icon: Hash, description: "Equal per unit" },
-  { value: "by_weight", label: "By Weight", icon: Scale, description: "Based on item weight" },
+  { value: "by_cbm", label: "By CBM", icon: Box, description: "Based on item CBM" },
 ];
 
 export default function NewPurchase() {
@@ -57,27 +68,27 @@ export default function NewPurchase() {
   // Order Details
   const [orderType, setOrderType] = useState<"local" | "import">("local");
   const [supplierId, setSupplierId] = useState<string>("");
-  const [purchaseType, setPurchaseType] = useState<string>("");
   const [warehouseId, setWarehouseId] = useState<string>("");
   const [newWarehouseName, setNewWarehouseName] = useState<string>("");
   const [purchaseDate, setPurchaseDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
 
-  // Fee Distribution
-  const [feeDistributionMethod, setFeeDistributionMethod] = useState<string>("by_value");
-
   // Global Fees
   const [globalFees, setGlobalFees] = useState<GlobalFee[]>([
-    { id: "shipping", name: "Shipping", amount: 0 },
+    { id: crypto.randomUUID(), name: "Shipping", amount: 0, distribution_method: "by_value" },
   ]);
 
   // Local Tax (for local orders)
   const [localTaxRate, setLocalTaxRate] = useState<string>("0");
 
+  // Category creation
+  const [newCategoryName, setNewCategoryName] = useState<string>("");
+  const [categoryPopoverOpen, setCategoryPopoverOpen] = useState<Record<string, boolean>>({});
+
   // Items
   const [items, setItems] = useState<PurchaseItem[]>([
-    { id: crypto.randomUUID(), item_name: "", product_id: null, category_id: null, subcategory_id: null, quantity: 1, unit_cost: 0, item_fees: 0, weight_kg: 0, sku: "" },
+    { id: crypto.randomUUID(), item_name: "", product_id: null, category_id: null, subcategory_id: null, quantity: 1, unit_cost: 0, cbm: 0, sku: "", fees: [] },
   ]);
 
   const { data: profile } = useQuery({
@@ -123,7 +134,7 @@ export default function NewPurchase() {
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id, product_name, cogs, product_type, weight_kg, sku")
+        .select("id, product_name, cogs, product_type, cbm, sku")
         .eq("company_id", profile?.company_id)
         .order("product_name");
       return data || [];
@@ -131,7 +142,7 @@ export default function NewPurchase() {
     enabled: !!profile?.company_id,
   });
 
-  const { data: categories } = useQuery({
+  const { data: categories, refetch: refetchCategories } = useQuery({
     queryKey: ["categories", profile?.company_id],
     queryFn: async () => {
       const { data } = await supabase
@@ -163,20 +174,20 @@ export default function NewPurchase() {
   }, [items]);
 
   const itemFeesTotal = useMemo(() => {
-    return items.reduce((sum, item) => sum + item.item_fees, 0);
+    return items.reduce((sum, item) => sum + item.fees.reduce((feeSum, fee) => feeSum + fee.amount, 0), 0);
   }, [items]);
 
-  const globalFeesTotal = useMemo(() => {
-    return globalFees.reduce((sum, fee) => sum + fee.amount, 0);
-  }, [globalFees]);
-
-  const totalWeight = useMemo(() => {
-    return items.reduce((sum, item) => sum + (item.weight_kg * item.quantity), 0);
+  const totalCBM = useMemo(() => {
+    return items.reduce((sum, item) => sum + (item.cbm * item.quantity), 0);
   }, [items]);
 
   const totalQuantity = useMemo(() => {
     return items.reduce((sum, item) => sum + item.quantity, 0);
   }, [items]);
+
+  const globalFeesTotal = useMemo(() => {
+    return globalFees.reduce((sum, fee) => sum + fee.amount, 0);
+  }, [globalFees]);
 
   const localTaxAmount = useMemo(() => {
     if (orderType !== "local") return 0;
@@ -187,32 +198,45 @@ export default function NewPurchase() {
     return itemsSubtotal + itemFeesTotal + globalFeesTotal + localTaxAmount;
   }, [itemsSubtotal, itemFeesTotal, globalFeesTotal, localTaxAmount]);
 
-  // Calculate landed cost per item based on distribution method
+  // Calculate distributed fees per item for each global fee independently
+  const calculateDistributedFees = (item: PurchaseItem) => {
+    const itemValue = item.quantity * item.unit_cost;
+    const itemCBM = item.cbm * item.quantity;
+    let totalDistributed = 0;
+
+    for (const fee of globalFees) {
+      if (fee.amount === 0) continue;
+      
+      if (fee.distribution_method === "by_value" && itemsSubtotal > 0) {
+        totalDistributed += (itemValue / itemsSubtotal) * fee.amount;
+      } else if (fee.distribution_method === "by_quantity" && totalQuantity > 0) {
+        totalDistributed += (item.quantity / totalQuantity) * fee.amount;
+      } else if (fee.distribution_method === "by_cbm" && totalCBM > 0) {
+        totalDistributed += (itemCBM / totalCBM) * fee.amount;
+      }
+    }
+
+    return totalDistributed;
+  };
+
+  // Calculate landed cost per item
   const calculateLandedCosts = useMemo(() => {
     return items.map(item => {
       const itemValue = item.quantity * item.unit_cost;
-      const itemWeight = item.weight_kg * item.quantity;
-      let distributedFees = 0;
-
-      if (feeDistributionMethod === "by_value" && itemsSubtotal > 0) {
-        distributedFees = (itemValue / itemsSubtotal) * globalFeesTotal;
-      } else if (feeDistributionMethod === "by_quantity" && totalQuantity > 0) {
-        distributedFees = (item.quantity / totalQuantity) * globalFeesTotal;
-      } else if (feeDistributionMethod === "by_weight" && totalWeight > 0) {
-        distributedFees = (itemWeight / totalWeight) * globalFeesTotal;
-      }
-
-      const landedCost = itemValue + item.item_fees + distributedFees;
+      const itemFeesSum = item.fees.reduce((sum, fee) => sum + fee.amount, 0);
+      const distributedFees = calculateDistributedFees(item);
+      const landedCost = itemValue + itemFeesSum + distributedFees;
       const landedCostPerUnit = item.quantity > 0 ? landedCost / item.quantity : 0;
 
       return {
         ...item,
         distributedFees,
+        itemFeesSum,
         landedCost,
         landedCostPerUnit,
       };
     });
-  }, [items, feeDistributionMethod, itemsSubtotal, totalQuantity, totalWeight, globalFeesTotal]);
+  }, [items, globalFees, itemsSubtotal, totalQuantity, totalCBM]);
 
   // Generate SKU based on category and subcategory
   const generateSKU = (categoryId: string | null, subcategoryId: string | null, productType: string) => {
@@ -230,7 +254,7 @@ export default function NewPurchase() {
   const addItem = () => {
     setItems([
       ...items,
-      { id: crypto.randomUUID(), item_name: "", product_id: null, category_id: null, subcategory_id: null, quantity: 1, unit_cost: 0, item_fees: 0, weight_kg: 0, sku: "" },
+      { id: crypto.randomUUID(), item_name: "", product_id: null, category_id: null, subcategory_id: null, quantity: 1, unit_cost: 0, cbm: 0, sku: "", fees: [] },
     ]);
   };
 
@@ -240,7 +264,7 @@ export default function NewPurchase() {
     }
   };
 
-  const updateItem = (id: string, field: keyof PurchaseItem, value: string | number | null) => {
+  const updateItem = (id: string, field: keyof Omit<PurchaseItem, 'fees'>, value: string | number | null) => {
     setItems(
       items.map((item) => {
         if (item.id !== id) return item;
@@ -254,7 +278,7 @@ export default function NewPurchase() {
               product_id: value as string,
               item_name: product.product_name,
               unit_cost: Number(product.cogs) || item.unit_cost,
-              weight_kg: Number(product.weight_kg) || 0,
+              cbm: Number(product.cbm) || 0,
               sku: product.sku || "",
             };
           }
@@ -264,7 +288,7 @@ export default function NewPurchase() {
         if (field === "category_id" || field === "subcategory_id") {
           const newCategoryId = field === "category_id" ? value as string : item.category_id;
           const newSubcategoryId = field === "subcategory_id" ? value as string : item.subcategory_id;
-          const sku = generateSKU(newCategoryId, newSubcategoryId, purchaseType);
+          const sku = generateSKU(newCategoryId, newSubcategoryId, "PROD");
           return { ...item, [field]: value, sku };
         }
         
@@ -273,11 +297,42 @@ export default function NewPurchase() {
     );
   };
 
+  // Item fee management
+  const addItemFee = (itemId: string) => {
+    setItems(items.map(item => {
+      if (item.id !== itemId) return item;
+      return {
+        ...item,
+        fees: [...item.fees, { id: crypto.randomUUID(), name: "", amount: 0 }]
+      };
+    }));
+  };
+
+  const removeItemFee = (itemId: string, feeId: string) => {
+    setItems(items.map(item => {
+      if (item.id !== itemId) return item;
+      return {
+        ...item,
+        fees: item.fees.filter(fee => fee.id !== feeId)
+      };
+    }));
+  };
+
+  const updateItemFee = (itemId: string, feeId: string, field: keyof ItemFee, value: string | number) => {
+    setItems(items.map(item => {
+      if (item.id !== itemId) return item;
+      return {
+        ...item,
+        fees: item.fees.map(fee => fee.id === feeId ? { ...fee, [field]: value } : fee)
+      };
+    }));
+  };
+
   // Global fee management
   const addGlobalFee = () => {
     setGlobalFees([
       ...globalFees,
-      { id: crypto.randomUUID(), name: "", amount: 0 },
+      { id: crypto.randomUUID(), name: "", amount: 0, distribution_method: "by_value" },
     ]);
   };
 
@@ -317,11 +372,35 @@ export default function NewPurchase() {
     toast({ title: "Warehouse created" });
   };
 
+  // Create category on the fly
+  const createCategory = async (itemId: string) => {
+    if (!profile?.company_id || !newCategoryName.trim()) return;
+    
+    const { data, error } = await supabase
+      .from("product_categories")
+      .insert({
+        company_id: profile.company_id,
+        name: newCategoryName.trim(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast({ title: "Error creating category", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    await refetchCategories();
+    updateItem(itemId, "category_id", data.id);
+    setNewCategoryName("");
+    setCategoryPopoverOpen(prev => ({ ...prev, [itemId]: false }));
+    toast({ title: "Category created" });
+  };
+
   const createPurchaseMutation = useMutation({
     mutationFn: async () => {
       if (!profile?.company_id) throw new Error("No company ID");
       if (!supplierId) throw new Error("Please select a supplier");
-      if (!purchaseType) throw new Error("Please select a purchase type");
       if (!warehouseId) throw new Error("Please select a warehouse destination");
       if (items.some((item) => !item.item_name.trim())) {
         throw new Error("All items must have a name");
@@ -333,16 +412,11 @@ export default function NewPurchase() {
         .insert({
           company_id: profile.company_id,
           supplier_id: supplierId,
-          purchase_type: purchaseType,
+          purchase_type: orderType === "local" ? "Local Purchase" : "Import Purchase",
           destination: warehouses?.find(w => w.id === warehouseId)?.name || "Warehouse",
           warehouse_id: warehouseId,
           order_type: orderType,
-          fee_distribution_method: feeDistributionMethod,
           purchase_date: purchaseDate,
-          shipping_cost: globalFees.find(f => f.name.toLowerCase() === "shipping")?.amount || 0,
-          customs_fees: globalFees.find(f => f.name.toLowerCase().includes("customs"))?.amount || 0,
-          handling_fees: globalFees.find(f => f.name.toLowerCase().includes("handling"))?.amount || 0,
-          duties_taxes: orderType === "import" ? globalFees.filter(f => !["shipping", "customs", "handling"].some(n => f.name.toLowerCase().includes(n))).reduce((sum, f) => sum + f.amount, 0) : 0,
           local_tax_rate: orderType === "local" ? parseFloat(localTaxRate || "0") : 0,
           total_cost: totalCost,
         })
@@ -350,6 +424,24 @@ export default function NewPurchase() {
         .single();
 
       if (purchaseError) throw purchaseError;
+
+      // Create global fees
+      const globalFeeRecords = globalFees
+        .filter(fee => fee.name.trim() && fee.amount > 0)
+        .map(fee => ({
+          company_id: profile.company_id,
+          purchase_id: purchase.id,
+          fee_name: fee.name.trim(),
+          amount: fee.amount,
+          distribution_method: fee.distribution_method,
+        }));
+
+      if (globalFeeRecords.length > 0) {
+        const { error: globalFeesError } = await supabase
+          .from("purchase_global_fees")
+          .insert(globalFeeRecords);
+        if (globalFeesError) throw globalFeesError;
+      }
 
       // Create purchase items with landed costs
       const purchaseItems = calculateLandedCosts
@@ -361,16 +453,39 @@ export default function NewPurchase() {
           product_id: item.product_id,
           quantity: item.quantity,
           unit_cost: item.unit_cost,
-          item_fees: item.item_fees,
-          weight_kg: item.weight_kg,
+          cbm: item.cbm,
           landed_cost: item.landedCostPerUnit,
         }));
 
       if (purchaseItems.length > 0) {
-        const { error: itemsError } = await supabase
+        const { data: insertedItems, error: itemsError } = await supabase
           .from("purchase_items")
-          .insert(purchaseItems);
+          .insert(purchaseItems)
+          .select();
         if (itemsError) throw itemsError;
+
+        // Create item fees
+        const itemFeeRecords: { company_id: string; purchase_item_id: string; fee_name: string; amount: number }[] = [];
+        calculateLandedCosts.forEach((item, index) => {
+          const insertedItem = insertedItems?.[index];
+          if (insertedItem && item.fees.length > 0) {
+            item.fees.filter(fee => fee.name.trim() && fee.amount > 0).forEach(fee => {
+              itemFeeRecords.push({
+                company_id: profile.company_id,
+                purchase_item_id: insertedItem.id,
+                fee_name: fee.name.trim(),
+                amount: fee.amount,
+              });
+            });
+          }
+        });
+
+        if (itemFeeRecords.length > 0) {
+          const { error: itemFeesError } = await supabase
+            .from("purchase_item_fees")
+            .insert(itemFeeRecords);
+          if (itemFeesError) throw itemFeesError;
+        }
       }
 
       return purchase;
@@ -392,7 +507,6 @@ export default function NewPurchase() {
 
   const isFormValid =
     supplierId &&
-    purchaseType &&
     warehouseId &&
     items.every((item) => item.item_name.trim());
 
@@ -467,22 +581,6 @@ export default function NewPurchase() {
                         {suppliers?.map((supplier) => (
                           <SelectItem key={supplier.id} value={supplier.id}>
                             {supplier.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="purchaseType">Purchase Type *</Label>
-                    <Select value={purchaseType} onValueChange={setPurchaseType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PURCHASE_TYPES.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -598,24 +696,60 @@ export default function NewPurchase() {
                         {!item.product_id && (
                           <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">Category</Label>
-                            <Select
-                              value={item.category_id || "none"}
-                              onValueChange={(value) =>
-                                updateItem(item.id, "category_id", value === "none" ? null : value)
-                              }
+                            <Popover 
+                              open={categoryPopoverOpen[item.id] || false} 
+                              onOpenChange={(open) => setCategoryPopoverOpen(prev => ({ ...prev, [item.id]: open }))}
                             >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select category" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">No category</SelectItem>
-                                {categories?.map((cat) => (
-                                  <SelectItem key={cat.id} value={cat.id}>
-                                    {cat.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className="w-full justify-between"
+                                >
+                                  {item.category_id
+                                    ? categories?.find(c => c.id === item.category_id)?.name
+                                    : "Select category..."}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[300px] p-0">
+                                <Command>
+                                  <CommandInput 
+                                    placeholder="Search or create category..." 
+                                    value={newCategoryName}
+                                    onValueChange={setNewCategoryName}
+                                  />
+                                  <CommandList>
+                                    <CommandEmpty>
+                                      <div className="p-2">
+                                        <Button 
+                                          size="sm" 
+                                          className="w-full"
+                                          onClick={() => createCategory(item.id)}
+                                          disabled={!newCategoryName.trim()}
+                                        >
+                                          <Plus className="h-4 w-4 mr-2" />
+                                          Create "{newCategoryName}"
+                                        </Button>
+                                      </div>
+                                    </CommandEmpty>
+                                    <CommandGroup>
+                                      {categories?.map((cat) => (
+                                        <CommandItem
+                                          key={cat.id}
+                                          value={cat.name}
+                                          onSelect={() => {
+                                            updateItem(item.id, "category_id", cat.id);
+                                            setCategoryPopoverOpen(prev => ({ ...prev, [item.id]: false }));
+                                          }}
+                                        >
+                                          {cat.name}
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
                           </div>
                         )}
                       </div>
@@ -694,14 +828,14 @@ export default function NewPurchase() {
                           />
                         </div>
                         <div className="col-span-3 md:col-span-2 space-y-1">
-                          <Label className="text-xs text-muted-foreground">Weight (kg)</Label>
+                          <Label className="text-xs text-muted-foreground">CBM</Label>
                           <Input
                             type="number"
                             min="0"
-                            step="0.01"
-                            value={item.weight_kg}
+                            step="0.001"
+                            value={item.cbm}
                             onChange={(e) =>
-                              updateItem(item.id, "weight_kg", parseFloat(e.target.value) || 0)
+                              updateItem(item.id, "cbm", parseFloat(e.target.value) || 0)
                             }
                           />
                         </div>
@@ -718,25 +852,62 @@ export default function NewPurchase() {
                         </div>
                       </div>
 
-                      {/* Item-specific fees */}
-                      <div className="grid grid-cols-12 gap-2 items-end">
-                        <div className="col-span-6 md:col-span-3 space-y-1">
+                      {/* Item-specific fees section */}
+                      <div className="space-y-2 pt-2 border-t border-dashed">
+                        <div className="flex items-center justify-between">
                           <Label className="text-xs text-muted-foreground">Item Fees</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.item_fees}
-                            onChange={(e) =>
-                              updateItem(item.id, "item_fees", parseFloat(e.target.value) || 0)
-                            }
-                            placeholder="0.00"
-                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => addItemFee(item.id)}
+                            className="h-7 text-xs"
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add Fee
+                          </Button>
                         </div>
+                        {item.fees.map((fee) => (
+                          <div key={fee.id} className="flex gap-2 items-center">
+                            <Input
+                              placeholder="Fee name"
+                              value={fee.name}
+                              onChange={(e) => updateItemFee(item.id, fee.id, "name", e.target.value)}
+                              className="flex-1 h-8 text-sm"
+                            />
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="Amount"
+                              value={fee.amount}
+                              onChange={(e) => updateItemFee(item.id, fee.id, "amount", parseFloat(e.target.value) || 0)}
+                              className="w-24 h-8 text-sm"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeItemFee(item.id, fee.id)}
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Landed cost summary */}
+                      <div className="grid grid-cols-12 gap-2 items-end pt-2 border-t">
                         <div className="col-span-6 md:col-span-3 space-y-1">
                           <Label className="text-xs text-muted-foreground">Line Total</Label>
                           <div className="h-10 flex items-center px-3 bg-background border rounded-md text-sm font-medium">
                             ${(item.quantity * item.unit_cost).toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="col-span-6 md:col-span-3 space-y-1">
+                          <Label className="text-xs text-muted-foreground">Item Fees Total</Label>
+                          <div className="h-10 flex items-center px-3 bg-muted border rounded-md text-sm text-muted-foreground">
+                            ${landedData?.itemFeesSum.toFixed(2) || "0.00"}
                           </div>
                         </div>
                         <div className="col-span-6 md:col-span-3 space-y-1">
@@ -769,8 +940,8 @@ export default function NewPurchase() {
                       <span className="font-semibold">${itemsSubtotal.toFixed(2)}</span>
                     </div>
                     <div>
-                      <span className="text-sm text-muted-foreground">Total Weight: </span>
-                      <span className="font-semibold">{totalWeight.toFixed(2)} kg</span>
+                      <span className="text-sm text-muted-foreground">Total CBM: </span>
+                      <span className="font-semibold">{totalCBM.toFixed(3)} m³</span>
                     </div>
                   </div>
                 </div>
@@ -786,7 +957,7 @@ export default function NewPurchase() {
                     Global Fees
                   </CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
-                    These fees will be distributed across all items
+                    Each fee has its own distribution method
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={addGlobalFee}>
@@ -795,55 +966,50 @@ export default function NewPurchase() {
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Fee Distribution Method */}
-                <div className="space-y-2">
-                  <Label>Distribution Method</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {FEE_DISTRIBUTION_METHODS.map((method) => (
-                      <Button
-                        key={method.value}
-                        type="button"
-                        variant={feeDistributionMethod === method.value ? "default" : "outline"}
-                        className="flex flex-col h-auto py-3"
-                        onClick={() => setFeeDistributionMethod(method.value)}
-                      >
-                        <method.icon className="h-4 w-4 mb-1" />
-                        <span className="text-xs">{method.label}</span>
-                      </Button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {FEE_DISTRIBUTION_METHODS.find(m => m.value === feeDistributionMethod)?.description}
-                  </p>
-                </div>
-
                 {/* Fee List */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {globalFees.map((fee) => (
-                    <div key={fee.id} className="flex gap-2 items-center">
-                      <Input
-                        placeholder="Fee name (e.g., Shipping, Customs)"
-                        value={fee.name}
-                        onChange={(e) => updateGlobalFee(fee.id, "name", e.target.value)}
-                        className="flex-1"
-                      />
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="Amount"
-                        value={fee.amount}
-                        onChange={(e) => updateGlobalFee(fee.id, "amount", parseFloat(e.target.value) || 0)}
-                        className="w-32"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeGlobalFee(fee.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <div key={fee.id} className="p-3 bg-muted/30 rounded-lg border space-y-2">
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          placeholder="Fee name (e.g., Shipping, Customs)"
+                          value={fee.name}
+                          onChange={(e) => updateGlobalFee(fee.id, "name", e.target.value)}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Amount"
+                          value={fee.amount}
+                          onChange={(e) => updateGlobalFee(fee.id, "amount", parseFloat(e.target.value) || 0)}
+                          className="w-32"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeGlobalFee(fee.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex gap-1">
+                        {FEE_DISTRIBUTION_METHODS.map((method) => (
+                          <Button
+                            key={method.value}
+                            type="button"
+                            variant={fee.distribution_method === method.value ? "default" : "outline"}
+                            size="sm"
+                            className="flex-1 text-xs"
+                            onClick={() => updateGlobalFee(fee.id, "distribution_method", method.value)}
+                          >
+                            <method.icon className="h-3 w-3 mr-1" />
+                            {method.label}
+                          </Button>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -929,13 +1095,13 @@ export default function NewPurchase() {
                       <span>{totalQuantity} units</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Total Weight</span>
-                      <span>{totalWeight.toFixed(2)} kg</span>
+                      <span>Total CBM</span>
+                      <span>{totalCBM.toFixed(3)} m³</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Distribution Method</span>
+                      <span>Order Type</span>
                       <Badge variant="outline" className="text-xs">
-                        {FEE_DISTRIBUTION_METHODS.find(m => m.value === feeDistributionMethod)?.label}
+                        {orderType === "local" ? "Local" : "Import"}
                       </Badge>
                     </div>
                   </div>

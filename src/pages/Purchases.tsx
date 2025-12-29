@@ -5,7 +5,8 @@ import { useAuth } from "@/lib/auth";
 import { MobileNav } from "@/components/MobileNav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShoppingCart, Plus } from "lucide-react";
+import { ShoppingCart, Plus, Globe, MapPin } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export default function Purchases() {
   const { user } = useAuth();
@@ -55,27 +56,35 @@ export default function Purchases() {
               </CardContent>
             </Card>
           )}
-          {purchases?.map((purchase) => (
-            <Card 
-              key={purchase.id} 
-              className="cursor-pointer hover:bg-accent/50 transition-colors"
-              onClick={() => navigate(`/purchases/${purchase.id}`)}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5 text-primary" />
-                  {purchase.purchase_type}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1">
-                <p className="text-sm"><span className="font-medium">Date:</span> {new Date(purchase.purchase_date).toLocaleDateString()}</p>
-                <p className="text-sm"><span className="font-medium">Destination:</span> {purchase.destination}</p>
-                <p className="text-sm"><span className="font-medium">Total Cost:</span> ${purchase.total_cost}</p>
-                {purchase.shipping_cost > 0 && <p className="text-sm"><span className="font-medium">Shipping:</span> ${purchase.shipping_cost}</p>}
-                {purchase.duties_taxes > 0 && <p className="text-sm"><span className="font-medium">Duties/Taxes:</span> ${purchase.duties_taxes}</p>}
-              </CardContent>
-            </Card>
-          ))}
+          {purchases?.map((purchase) => {
+            const orderType = purchase.order_type || "local";
+            return (
+              <Card 
+                key={purchase.id} 
+                className="cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => navigate(`/purchases/${purchase.id}`)}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShoppingCart className="h-5 w-5 text-primary" />
+                    {purchase.purchase_type}
+                    <Badge variant={orderType === "import" ? "default" : "secondary"} className="ml-2">
+                      {orderType === "import" ? (
+                        <><Globe className="h-3 w-3 mr-1" />Import</>
+                      ) : (
+                        <><MapPin className="h-3 w-3 mr-1" />Local</>
+                      )}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1">
+                  <p className="text-sm"><span className="font-medium">Date:</span> {new Date(purchase.purchase_date).toLocaleDateString()}</p>
+                  <p className="text-sm"><span className="font-medium">Destination:</span> {purchase.destination}</p>
+                  <p className="text-sm"><span className="font-medium">Total Cost:</span> <span className="text-primary font-semibold">${Number(purchase.total_cost).toFixed(2)}</span></p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
       <MobileNav />
