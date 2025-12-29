@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ShoppingCart, Package, Calendar, MapPin, Truck, Receipt } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Package, Calendar, MapPin, Truck, Receipt, Globe, Scale, DollarSign, Hash, Warehouse } from "lucide-react";
 
 export default function PurchaseDetail() {
   const { id } = useParams<{ id: string }>();
@@ -46,6 +46,20 @@ export default function PurchaseDetail() {
       return data;
     },
     enabled: !!purchase?.supplier_id,
+  });
+
+  const { data: warehouse } = useQuery({
+    queryKey: ["warehouse", purchase?.warehouse_id],
+    queryFn: async () => {
+      if (!purchase?.warehouse_id) return null;
+      const { data } = await supabase
+        .from("warehouses")
+        .select("*")
+        .eq("id", purchase.warehouse_id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!purchase?.warehouse_id,
   });
 
   const { data: purchaseItems, isLoading: itemsLoading } = useQuery({
@@ -81,6 +95,17 @@ export default function PurchaseDetail() {
   };
 
   const itemsSubtotal = purchaseItems?.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0) || 0;
+  const itemFeesTotal = purchaseItems?.reduce((sum, item) => sum + (Number(item.item_fees) || 0), 0) || 0;
+  const totalWeight = purchaseItems?.reduce((sum, item) => sum + ((Number(item.weight_kg) || 0) * item.quantity), 0) || 0;
+
+  const getFeeDistributionLabel = (method: string | null) => {
+    switch (method) {
+      case "by_value": return "By Value";
+      case "by_quantity": return "By Quantity";
+      case "by_weight": return "By Weight";
+      default: return "By Value";
+    }
+  };
 
   if (purchaseLoading) {
     return (
@@ -109,6 +134,13 @@ export default function PurchaseDetail() {
     );
   }
 
+  const orderType = (purchase as any).order_type || "local";
+  const feeDistributionMethod = (purchase as any).fee_distribution_method || "by_value";
+  const customsFees = Number((purchase as any).customs_fees) || 0;
+  const handlingFees = Number((purchase as any).handling_fees) || 0;
+  const localTaxRate = Number((purchase as any).local_tax_rate) || 0;
+  const localTaxAmount = localTaxRate > 0 ? itemsSubtotal * (localTaxRate / 100) : 0;
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="container mx-auto p-4 space-y-6">
@@ -116,7 +148,21 @@ export default function PurchaseDetail() {
           <Button variant="ghost" size="icon" onClick={() => navigate("/purchases")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Purchase Details</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Purchase Details</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant={orderType === "import" ? "default" : "secondary"}>
+                {orderType === "import" ? (
+                  <><Globe className="h-3 w-3 mr-1" />Import</>
+                ) : (
+                  <><MapPin className="h-3 w-3 mr-1" />Local</>
+                )}
+              </Badge>
+              <Badge variant="outline">
+                {purchase.purchase_type}
+              </Badge>
+            </div>
+          </div>
         </div>
 
         {/* Purchase Summary */}
@@ -124,10 +170,10 @@ export default function PurchaseDetail() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShoppingCart className="h-5 w-5 text-primary" />
-              {purchase.purchase_type}
+              Order Summary
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">
@@ -136,9 +182,10 @@ export default function PurchaseDetail() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <Warehouse className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">
-                <span className="font-medium">Destination:</span> {purchase.destination}
+                <span className="font-medium">Destination:</span>{" "}
+                {warehouse?.name || purchase.destination}
               </span>
             </div>
             {supplier && (
@@ -154,6 +201,21 @@ export default function PurchaseDetail() {
               <span className="text-sm">
                 <span className="font-medium">Total Cost:</span>{" "}
                 <span className="text-primary font-semibold">${Number(purchase.total_cost).toFixed(2)}</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Scale className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">
+                <span className="font-medium">Total Weight:</span> {totalWeight.toFixed(2)} kg
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {feeDistributionMethod === "by_value" && <DollarSign className="h-4 w-4 text-muted-foreground" />}
+              {feeDistributionMethod === "by_quantity" && <Hash className="h-4 w-4 text-muted-foreground" />}
+              {feeDistributionMethod === "by_weight" && <Scale className="h-4 w-4 text-muted-foreground" />}
+              <span className="text-sm">
+                <span className="font-medium">Fee Distribution:</span>{" "}
+                {getFeeDistributionLabel(feeDistributionMethod)}
               </span>
             </div>
           </CardContent>
@@ -181,12 +243,18 @@ export default function PurchaseDetail() {
                       <TableHead>Linked Product</TableHead>
                       <TableHead className="text-right">Qty</TableHead>
                       <TableHead className="text-right">Unit Cost</TableHead>
-                      <TableHead className="text-right">Subtotal</TableHead>
+                      <TableHead className="text-right">Weight</TableHead>
+                      <TableHead className="text-right">Item Fees</TableHead>
+                      <TableHead className="text-right">Landed Cost</TableHead>
+                      <TableHead className="text-right">Line Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {purchaseItems?.map((item) => {
                       const product = getProductInfo(item.product_id);
+                      const landedCost = Number((item as any).landed_cost) || 0;
+                      const weightKg = Number((item as any).weight_kg) || 0;
+                      const itemFees = Number((item as any).item_fees) || 0;
                       return (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.item_name}</TableCell>
@@ -202,6 +270,11 @@ export default function PurchaseDetail() {
                           </TableCell>
                           <TableCell className="text-right">{item.quantity}</TableCell>
                           <TableCell className="text-right">${Number(item.unit_cost).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{(weightKg * item.quantity).toFixed(2)} kg</TableCell>
+                          <TableCell className="text-right">${itemFees.toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-primary font-medium">
+                            ${landedCost.toFixed(2)}/unit
+                          </TableCell>
                           <TableCell className="text-right font-medium">
                             ${(item.quantity * Number(item.unit_cost)).toFixed(2)}
                           </TableCell>
@@ -226,16 +299,40 @@ export default function PurchaseDetail() {
                 <span>Items Subtotal</span>
                 <span>${itemsSubtotal.toFixed(2)}</span>
               </div>
+              {itemFeesTotal > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span>Item-Specific Fees</span>
+                  <span>${itemFeesTotal.toFixed(2)}</span>
+                </div>
+              )}
               {Number(purchase.shipping_cost) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span>Shipping Cost</span>
                   <span>${Number(purchase.shipping_cost).toFixed(2)}</span>
                 </div>
               )}
+              {customsFees > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span>Customs Fees</span>
+                  <span>${customsFees.toFixed(2)}</span>
+                </div>
+              )}
+              {handlingFees > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span>Handling Fees</span>
+                  <span>${handlingFees.toFixed(2)}</span>
+                </div>
+              )}
               {Number(purchase.duties_taxes) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span>Duties & Taxes</span>
                   <span>${Number(purchase.duties_taxes).toFixed(2)}</span>
+                </div>
+              )}
+              {localTaxAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span>Local Tax ({localTaxRate}%)</span>
+                  <span>${localTaxAmount.toFixed(2)}</span>
                 </div>
               )}
               <div className="border-t pt-2 mt-2">
