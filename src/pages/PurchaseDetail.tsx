@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ShoppingCart, Package, Calendar, MapPin, Truck, Receipt, Globe, Scale, DollarSign, Hash, Warehouse } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Package, Calendar, MapPin, Truck, Receipt, Globe, Box, DollarSign, Hash, Warehouse } from "lucide-react";
 
 export default function PurchaseDetail() {
   const { id } = useParams<{ id: string }>();
@@ -75,6 +75,33 @@ export default function PurchaseDetail() {
     enabled: !!id,
   });
 
+  const { data: globalFees } = useQuery({
+    queryKey: ["purchase-global-fees", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("purchase_global_fees")
+        .select("*")
+        .eq("purchase_id", id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  const { data: itemFees } = useQuery({
+    queryKey: ["purchase-item-fees", purchaseItems?.map(i => i.id)],
+    queryFn: async () => {
+      const itemIds = purchaseItems?.map(i => i.id) || [];
+      if (itemIds.length === 0) return [];
+      const { data } = await supabase
+        .from("purchase_item_fees")
+        .select("*")
+        .in("purchase_item_id", itemIds);
+      return data || [];
+    },
+    enabled: !!purchaseItems && purchaseItems.length > 0,
+  });
+
   const { data: products } = useQuery({
     queryKey: ["products-for-items", purchaseItems?.map(i => i.product_id).filter(Boolean)],
     queryFn: async () => {
@@ -94,16 +121,30 @@ export default function PurchaseDetail() {
     return products.find(p => p.id === productId);
   };
 
+  const getItemFees = (itemId: string) => {
+    return itemFees?.filter(f => f.purchase_item_id === itemId) || [];
+  };
+
   const itemsSubtotal = purchaseItems?.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0) || 0;
-  const itemFeesTotal = purchaseItems?.reduce((sum, item) => sum + (Number(item.item_fees) || 0), 0) || 0;
-  const totalWeight = purchaseItems?.reduce((sum, item) => sum + ((Number(item.weight_kg) || 0) * item.quantity), 0) || 0;
+  const itemFeesTotal = itemFees?.reduce((sum, fee) => sum + Number(fee.amount), 0) || 0;
+  const globalFeesTotal = globalFees?.reduce((sum, fee) => sum + Number(fee.amount), 0) || 0;
+  const totalCBM = purchaseItems?.reduce((sum, item) => sum + ((Number(item.cbm) || 0) * item.quantity), 0) || 0;
 
   const getFeeDistributionLabel = (method: string | null) => {
     switch (method) {
       case "by_value": return "By Value";
       case "by_quantity": return "By Quantity";
-      case "by_weight": return "By Weight";
+      case "by_cbm": return "By CBM";
       default: return "By Value";
+    }
+  };
+
+  const getFeeDistributionIcon = (method: string | null) => {
+    switch (method) {
+      case "by_value": return DollarSign;
+      case "by_quantity": return Hash;
+      case "by_cbm": return Box;
+      default: return DollarSign;
     }
   };
 
@@ -134,11 +175,8 @@ export default function PurchaseDetail() {
     );
   }
 
-  const orderType = (purchase as any).order_type || "local";
-  const feeDistributionMethod = (purchase as any).fee_distribution_method || "by_value";
-  const customsFees = Number((purchase as any).customs_fees) || 0;
-  const handlingFees = Number((purchase as any).handling_fees) || 0;
-  const localTaxRate = Number((purchase as any).local_tax_rate) || 0;
+  const orderType = purchase.order_type || "local";
+  const localTaxRate = Number(purchase.local_tax_rate) || 0;
   const localTaxAmount = localTaxRate > 0 ? itemsSubtotal * (localTaxRate / 100) : 0;
 
   return (
@@ -204,18 +242,9 @@ export default function PurchaseDetail() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Scale className="h-4 w-4 text-muted-foreground" />
+              <Box className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">
-                <span className="font-medium">Total Weight:</span> {totalWeight.toFixed(2)} kg
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {feeDistributionMethod === "by_value" && <DollarSign className="h-4 w-4 text-muted-foreground" />}
-              {feeDistributionMethod === "by_quantity" && <Hash className="h-4 w-4 text-muted-foreground" />}
-              {feeDistributionMethod === "by_weight" && <Scale className="h-4 w-4 text-muted-foreground" />}
-              <span className="text-sm">
-                <span className="font-medium">Fee Distribution:</span>{" "}
-                {getFeeDistributionLabel(feeDistributionMethod)}
+                <span className="font-medium">Total CBM:</span> {totalCBM.toFixed(3)} m³
               </span>
             </div>
           </CardContent>
@@ -243,7 +272,7 @@ export default function PurchaseDetail() {
                       <TableHead>Linked Product</TableHead>
                       <TableHead className="text-right">Qty</TableHead>
                       <TableHead className="text-right">Unit Cost</TableHead>
-                      <TableHead className="text-right">Weight</TableHead>
+                      <TableHead className="text-right">CBM</TableHead>
                       <TableHead className="text-right">Item Fees</TableHead>
                       <TableHead className="text-right">Landed Cost</TableHead>
                       <TableHead className="text-right">Line Total</TableHead>
@@ -252,12 +281,20 @@ export default function PurchaseDetail() {
                   <TableBody>
                     {purchaseItems?.map((item) => {
                       const product = getProductInfo(item.product_id);
-                      const landedCost = Number((item as any).landed_cost) || 0;
-                      const weightKg = Number((item as any).weight_kg) || 0;
-                      const itemFees = Number((item as any).item_fees) || 0;
+                      const landedCost = Number(item.landed_cost) || 0;
+                      const cbm = Number(item.cbm) || 0;
+                      const fees = getItemFees(item.id);
+                      const feesTotal = fees.reduce((sum, f) => sum + Number(f.amount), 0);
                       return (
                         <TableRow key={item.id}>
-                          <TableCell className="font-medium">{item.item_name}</TableCell>
+                          <TableCell className="font-medium">
+                            {item.item_name}
+                            {fees.length > 0 && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {fees.map(f => `${f.fee_name}: $${Number(f.amount).toFixed(2)}`).join(", ")}
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell>
                             {product ? (
                               <Badge variant="secondary" className="gap-1">
@@ -270,8 +307,8 @@ export default function PurchaseDetail() {
                           </TableCell>
                           <TableCell className="text-right">{item.quantity}</TableCell>
                           <TableCell className="text-right">${Number(item.unit_cost).toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{(weightKg * item.quantity).toFixed(2)} kg</TableCell>
-                          <TableCell className="text-right">${itemFees.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{(cbm * item.quantity).toFixed(3)} m³</TableCell>
+                          <TableCell className="text-right">${feesTotal.toFixed(2)}</TableCell>
                           <TableCell className="text-right text-primary font-medium">
                             ${landedCost.toFixed(2)}/unit
                           </TableCell>
@@ -287,6 +324,34 @@ export default function PurchaseDetail() {
             )}
           </CardContent>
         </Card>
+
+        {/* Global Fees */}
+        {globalFees && globalFees.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Global Fees</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {globalFees.map((fee) => {
+                  const Icon = getFeeDistributionIcon(fee.distribution_method);
+                  return (
+                    <div key={fee.id} className="flex justify-between items-center text-sm">
+                      <div className="flex items-center gap-2">
+                        <span>{fee.fee_name}</span>
+                        <Badge variant="outline" className="text-xs gap-1">
+                          <Icon className="h-3 w-3" />
+                          {getFeeDistributionLabel(fee.distribution_method)}
+                        </Badge>
+                      </div>
+                      <span className="font-medium">${Number(fee.amount).toFixed(2)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Cost Breakdown */}
         <Card>
@@ -305,28 +370,10 @@ export default function PurchaseDetail() {
                   <span>${itemFeesTotal.toFixed(2)}</span>
                 </div>
               )}
-              {Number(purchase.shipping_cost) > 0 && (
+              {globalFeesTotal > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span>Shipping Cost</span>
-                  <span>${Number(purchase.shipping_cost).toFixed(2)}</span>
-                </div>
-              )}
-              {customsFees > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span>Customs Fees</span>
-                  <span>${customsFees.toFixed(2)}</span>
-                </div>
-              )}
-              {handlingFees > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span>Handling Fees</span>
-                  <span>${handlingFees.toFixed(2)}</span>
-                </div>
-              )}
-              {Number(purchase.duties_taxes) > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span>Duties & Taxes</span>
-                  <span>${Number(purchase.duties_taxes).toFixed(2)}</span>
+                  <span>Global Fees</span>
+                  <span>${globalFeesTotal.toFixed(2)}</span>
                 </div>
               )}
               {localTaxAmount > 0 && (

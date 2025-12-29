@@ -593,6 +593,7 @@ export type Database = {
       }
       products: {
         Row: {
+          cbm: number | null
           cogs: number
           company_id: string
           created_at: string
@@ -611,9 +612,9 @@ export type Database = {
           sku: string | null
           total_sales_amount: number
           updated_at: string
-          weight_kg: number | null
         }
         Insert: {
+          cbm?: number | null
           cogs?: number
           company_id: string
           created_at?: string
@@ -632,9 +633,9 @@ export type Database = {
           sku?: string | null
           total_sales_amount?: number
           updated_at?: string
-          weight_kg?: number | null
         }
         Update: {
+          cbm?: number | null
           cogs?: number
           company_id?: string
           created_at?: string
@@ -653,7 +654,6 @@ export type Database = {
           sku?: string | null
           total_sales_amount?: number
           updated_at?: string
-          weight_kg?: number | null
         }
         Relationships: [
           {
@@ -755,42 +755,112 @@ export type Database = {
           },
         ]
       }
+      purchase_global_fees: {
+        Row: {
+          amount: number
+          company_id: string
+          created_at: string
+          distribution_method: string
+          fee_name: string
+          id: string
+          purchase_id: string
+        }
+        Insert: {
+          amount?: number
+          company_id: string
+          created_at?: string
+          distribution_method?: string
+          fee_name: string
+          id?: string
+          purchase_id: string
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          created_at?: string
+          distribution_method?: string
+          fee_name?: string
+          id?: string
+          purchase_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_global_fees_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_item_fees: {
+        Row: {
+          amount: number
+          company_id: string
+          created_at: string
+          fee_name: string
+          id: string
+          purchase_item_id: string
+        }
+        Insert: {
+          amount?: number
+          company_id: string
+          created_at?: string
+          fee_name: string
+          id?: string
+          purchase_item_id: string
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          created_at?: string
+          fee_name?: string
+          id?: string
+          purchase_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_item_fees_purchase_item_id_fkey"
+            columns: ["purchase_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_items: {
         Row: {
+          cbm: number | null
           company_id: string
           id: string
-          item_fees: number | null
           item_name: string
           landed_cost: number | null
           product_id: string | null
           purchase_id: string
           quantity: number
           unit_cost: number
-          weight_kg: number | null
         }
         Insert: {
+          cbm?: number | null
           company_id: string
           id?: string
-          item_fees?: number | null
           item_name: string
           landed_cost?: number | null
           product_id?: string | null
           purchase_id: string
           quantity: number
           unit_cost: number
-          weight_kg?: number | null
         }
         Update: {
+          cbm?: number | null
           company_id?: string
           id?: string
-          item_fees?: number | null
           item_name?: string
           landed_cost?: number | null
           product_id?: string | null
           purchase_id?: string
           quantity?: number
           unit_cost?: number
-          weight_kg?: number | null
         }
         Relationships: [
           {
@@ -806,17 +876,12 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
-          customs_fees: number | null
           destination: string
-          duties_taxes: number | null
-          fee_distribution_method: string | null
-          handling_fees: number | null
           id: string
           local_tax_rate: number | null
           order_type: string | null
           purchase_date: string
           purchase_type: string
-          shipping_cost: number | null
           supplier_id: string
           total_cost: number
           warehouse_id: string | null
@@ -824,17 +889,12 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
-          customs_fees?: number | null
           destination: string
-          duties_taxes?: number | null
-          fee_distribution_method?: string | null
-          handling_fees?: number | null
           id?: string
           local_tax_rate?: number | null
           order_type?: string | null
           purchase_date: string
           purchase_type: string
-          shipping_cost?: number | null
           supplier_id: string
           total_cost: number
           warehouse_id?: string | null
@@ -842,17 +902,12 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
-          customs_fees?: number | null
           destination?: string
-          duties_taxes?: number | null
-          fee_distribution_method?: string | null
-          handling_fees?: number | null
           id?: string
           local_tax_rate?: number | null
           order_type?: string | null
           purchase_date?: string
           purchase_type?: string
-          shipping_cost?: number | null
           supplier_id?: string
           total_cost?: number
           warehouse_id?: string | null
