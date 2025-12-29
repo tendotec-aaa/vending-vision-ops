@@ -556,6 +556,41 @@ export type Database = {
         }
         Relationships: []
       }
+      product_subcategories: {
+        Row: {
+          category_id: string | null
+          code: string
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          category_id?: string | null
+          code: string
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          category_id?: string | null
+          code?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_subcategories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           cogs: number
@@ -565,6 +600,7 @@ export type Database = {
           last_product_purchase: string | null
           product_category_id: string | null
           product_name: string
+          product_subcategory_id: string | null
           product_type: string
           product_type_other: string | null
           quantity_bodega: number
@@ -572,8 +608,10 @@ export type Database = {
           quantity_purchased: number
           quantity_sold: number
           quantity_surplus_shortage: number
+          sku: string | null
           total_sales_amount: number
           updated_at: string
+          weight_kg: number | null
         }
         Insert: {
           cogs?: number
@@ -583,6 +621,7 @@ export type Database = {
           last_product_purchase?: string | null
           product_category_id?: string | null
           product_name: string
+          product_subcategory_id?: string | null
           product_type: string
           product_type_other?: string | null
           quantity_bodega?: number
@@ -590,8 +629,10 @@ export type Database = {
           quantity_purchased?: number
           quantity_sold?: number
           quantity_surplus_shortage?: number
+          sku?: string | null
           total_sales_amount?: number
           updated_at?: string
+          weight_kg?: number | null
         }
         Update: {
           cogs?: number
@@ -601,6 +642,7 @@ export type Database = {
           last_product_purchase?: string | null
           product_category_id?: string | null
           product_name?: string
+          product_subcategory_id?: string | null
           product_type?: string
           product_type_other?: string | null
           quantity_bodega?: number
@@ -608,8 +650,10 @@ export type Database = {
           quantity_purchased?: number
           quantity_sold?: number
           quantity_surplus_shortage?: number
+          sku?: string | null
           total_sales_amount?: number
           updated_at?: string
+          weight_kg?: number | null
         }
         Relationships: [
           {
@@ -617,6 +661,13 @@ export type Database = {
             columns: ["product_category_id"]
             isOneToOne: false
             referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_product_subcategory_id_fkey"
+            columns: ["product_subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "product_subcategories"
             referencedColumns: ["id"]
           },
         ]
@@ -708,29 +759,38 @@ export type Database = {
         Row: {
           company_id: string
           id: string
+          item_fees: number | null
           item_name: string
+          landed_cost: number | null
           product_id: string | null
           purchase_id: string
           quantity: number
           unit_cost: number
+          weight_kg: number | null
         }
         Insert: {
           company_id: string
           id?: string
+          item_fees?: number | null
           item_name: string
+          landed_cost?: number | null
           product_id?: string | null
           purchase_id: string
           quantity: number
           unit_cost: number
+          weight_kg?: number | null
         }
         Update: {
           company_id?: string
           id?: string
+          item_fees?: number | null
           item_name?: string
+          landed_cost?: number | null
           product_id?: string | null
           purchase_id?: string
           quantity?: number
           unit_cost?: number
+          weight_kg?: number | null
         }
         Relationships: [
           {
@@ -746,40 +806,66 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          customs_fees: number | null
           destination: string
           duties_taxes: number | null
+          fee_distribution_method: string | null
+          handling_fees: number | null
           id: string
+          local_tax_rate: number | null
+          order_type: string | null
           purchase_date: string
           purchase_type: string
           shipping_cost: number | null
           supplier_id: string
           total_cost: number
+          warehouse_id: string | null
         }
         Insert: {
           company_id: string
           created_at?: string
+          customs_fees?: number | null
           destination: string
           duties_taxes?: number | null
+          fee_distribution_method?: string | null
+          handling_fees?: number | null
           id?: string
+          local_tax_rate?: number | null
+          order_type?: string | null
           purchase_date: string
           purchase_type: string
           shipping_cost?: number | null
           supplier_id: string
           total_cost: number
+          warehouse_id?: string | null
         }
         Update: {
           company_id?: string
           created_at?: string
+          customs_fees?: number | null
           destination?: string
           duties_taxes?: number | null
+          fee_distribution_method?: string | null
+          handling_fees?: number | null
           id?: string
+          local_tax_rate?: number | null
+          order_type?: string | null
           purchase_date?: string
           purchase_type?: string
           shipping_cost?: number | null
           supplier_id?: string
           total_cost?: number
+          warehouse_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "purchases_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       route_assignments: {
         Row: {
@@ -1373,6 +1459,36 @@ export type Database = {
         }
         Relationships: []
       }
+      warehouses: {
+        Row: {
+          address: string | null
+          company_id: string
+          created_at: string
+          id: string
+          is_default: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       work_orders: {
         Row: {
           assigned_to: string | null
@@ -1491,6 +1607,14 @@ export type Database = {
       add_stock_to_bodega: {
         Args: { p_notes?: string; p_product_id: string; p_quantity: number }
         Returns: undefined
+      }
+      generate_product_sku: {
+        Args: {
+          p_category_code: string
+          p_subcategory_code: string
+          p_type_code: string
+        }
+        Returns: string
       }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
