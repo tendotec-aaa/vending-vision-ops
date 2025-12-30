@@ -92,8 +92,14 @@ export default function VisitReports() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
+  // Get URL params for initial filter state
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialSpotFilter = urlParams.get('spot') || 'all';
+  const initialLocationFilter = urlParams.get('location') || 'all';
+  
   const [search, setSearch] = useState('');
-  const [locationFilter, setLocationFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState(initialLocationFilter);
+  const [spotFilter, setSpotFilter] = useState(initialSpotFilter);
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [selectedReports, setSelectedReports] = useState<Set<string>>(new Set());
@@ -264,6 +270,11 @@ export default function VisitReports() {
         return false;
       }
       
+      // Spot filter
+      if (spotFilter !== 'all' && report.spot_id !== spotFilter) {
+        return false;
+      }
+      
       // Date range filter
       const reportDate = new Date(report.visit_date);
       if (dateFrom && reportDate < dateFrom) return false;
@@ -286,7 +297,14 @@ export default function VisitReports() {
       
       return true;
     });
-  }, [visitReports, locationFilter, dateFrom, dateTo, search, locations]);
+  }, [visitReports, locationFilter, spotFilter, dateFrom, dateTo, search, locations]);
+
+  // Get spots filtered by selected location
+  const filteredSpots = useMemo(() => {
+    if (!locationSpots) return [];
+    if (locationFilter === 'all') return locationSpots;
+    return locationSpots.filter(s => s.location_id === locationFilter);
+  }, [locationSpots, locationFilter]);
 
   const getLocationName = (locationId: string) => {
     return locations?.find(l => l.id === locationId)?.name || 'Unknown';
@@ -462,7 +480,11 @@ export default function VisitReports() {
               />
             </div>
 
-            <Select value={locationFilter} onValueChange={setLocationFilter}>
+            <Select value={locationFilter} onValueChange={(val) => {
+              setLocationFilter(val);
+              // Reset spot filter when location changes
+              if (val !== locationFilter) setSpotFilter('all');
+            }}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All Locations" />
               </SelectTrigger>
@@ -471,6 +493,23 @@ export default function VisitReports() {
                 {locations?.map(loc => (
                   <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={spotFilter} onValueChange={setSpotFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="All Spots" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Spots</SelectItem>
+                {filteredSpots?.map(spot => {
+                  const location = locations?.find(l => l.id === spot.location_id);
+                  return (
+                    <SelectItem key={spot.id} value={spot.id}>
+                      {location?.name} #{spot.spot_number}{spot.place_name ? ` (${spot.place_name})` : ''}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
 

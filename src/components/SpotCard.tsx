@@ -12,7 +12,7 @@ import {
   CollapsibleTrigger 
 } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { ChevronDown, Cpu, Edit2, Check, X, Hash, Package, DollarSign, Calendar, AlertTriangle, TrendingUp, Clock, Wrench } from 'lucide-react';
+import { ChevronDown, Cpu, Edit2, Check, X, Hash, Package, DollarSign, Calendar, AlertTriangle, TrendingUp, Clock, Wrench, FileText } from 'lucide-react';
 import { AssignSetupDialog } from './AssignSetupDialog';
 import { ReadOnlySlotDisplay } from './ReadOnlySlotDisplay';
 import { format, differenceInDays } from 'date-fns';
@@ -359,7 +359,16 @@ export function SpotCard({
               </div>
             )}
 
-            {/* Setup Assignment */}
+            {/* View Reports Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => navigate(`/visit-reports?spot=${spot.id}`)}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              View Visit Reports
+            </Button>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Setup:</span>
               <AssignSetupDialog
