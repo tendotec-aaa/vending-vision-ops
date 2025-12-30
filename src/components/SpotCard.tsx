@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -100,6 +100,21 @@ export function SpotCard({
   const assignedSetup = setups.find(s => s.id === spot.setup_id);
   const machines = setupMachines.filter(sm => sm.setup_id === spot.setup_id);
 
+  // Fetch actual sales from visit_reports to ensure accuracy
+  const { data: visitReportTotals } = useQuery({
+    queryKey: ['spot_visit_totals', spot.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('visit_reports')
+        .select('total_cash_collected')
+        .eq('spot_id', spot.id);
+      
+      const totalSales = data?.reduce((sum, vr) => sum + (Number(vr.total_cash_collected) || 0), 0) || 0;
+      return { totalSales };
+    },
+    staleTime: 30000, // Cache for 30 seconds
+  });
+
   // Calculate operational days - from start date to last visit (not current date)
   const startDate = spot.spot_start_date || locationStartDate;
   const endDate = spot.spot_last_visit_report ? new Date(spot.spot_last_visit_report) : null;
@@ -115,9 +130,12 @@ export function SpotCard({
   const currentStock = allSlotsForSpot.reduce((sum, slot) => sum + (slot.current_stock || 0), 0);
   const stockPercentage = totalCapacity > 0 ? (currentStock / totalCapacity) * 100 : 0;
 
+  // Use actual sales from visit_reports (accurate) instead of denormalized spot_total_sales (potentially stale)
+  const totalSales = visitReportTotals?.totalSales ?? 0;
+
   // Calculate 30-day average (rough estimate based on total sales and operational days)
-  const thirtyDayAverage = operationalDays && operationalDays > 0 && (spot.spot_total_sales ?? 0) > 0
-    ? ((Number(spot.spot_total_sales) / operationalDays) * 30)
+  const thirtyDayAverage = operationalDays && operationalDays > 0 && totalSales > 0
+    ? (totalSales / operationalDays) * 30
     : null;
 
   // Calculate total rent: (monthly rent * 12 / 365) × days active (from start to last visit)
@@ -125,8 +143,7 @@ export function SpotCard({
   const totalRent = rentPerSpot && operationalDays && operationalDays > 0
     ? dailyRentRate * operationalDays
     : 0;
-  const totalSales = spot.spot_total_sales || 0;
-  const profit = Number(totalSales) - totalRent;
+  const profit = totalSales - totalRent;
   const isProfitable = profit > 0;
 
   const updatePlaceNameMutation = useMutation({
@@ -229,10 +246,10 @@ export function SpotCard({
                   {operationalDays} days active
                 </span>
               )}
-              {(spot.spot_total_sales ?? 0) > 0 && (
+              {totalSales > 0 && (
                 <span className="flex items-center gap-1 text-green-600">
                   <DollarSign className="h-3 w-3" />
-                  ${Number(spot.spot_total_sales || 0).toFixed(2)} sales
+                  ${totalSales.toFixed(2)} sales
                 </span>
               )}
               {rentPerSpot !== null && (
