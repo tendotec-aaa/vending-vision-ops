@@ -92,6 +92,27 @@ export default function Locations() {
     enabled: !!profile?.company_id,
   });
 
+  // Fetch actual sales from visit_reports per location to ensure accuracy
+  const { data: locationSalesTotals } = useQuery({
+    queryKey: ['location_sales_totals', profile?.company_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('visit_reports')
+        .select('location_id, total_cash_collected')
+        .eq('company_id', profile?.company_id);
+      
+      // Group by location_id and sum total_cash_collected
+      const totals: Record<string, number> = {};
+      data?.forEach(vr => {
+        if (vr.location_id) {
+          totals[vr.location_id] = (totals[vr.location_id] || 0) + (Number(vr.total_cash_collected) || 0);
+        }
+      });
+      return totals;
+    },
+    enabled: !!profile?.company_id,
+  });
+
   const { data: locationSpots } = useQuery({
     queryKey: ['location_spots', profile?.company_id],
     queryFn: async () => {
@@ -477,10 +498,10 @@ export default function Locations() {
                                   Started: {format(new Date(location.start_date), 'MMM d, yyyy')}
                                 </span>
                               )}
-                              {(location.location_total_sales ?? 0) > 0 && (
+                              {(locationSalesTotals?.[location.id] ?? 0) > 0 && (
                                 <span className="flex items-center gap-1 text-green-600">
                                   <TrendingUp className="h-3 w-3" />
-                                  ${Number(location.location_total_sales || 0).toFixed(2)} total sales
+                                  ${(locationSalesTotals?.[location.id] || 0).toFixed(2)} total sales
                                 </span>
                               )}
                               {location.rent_amount && (
