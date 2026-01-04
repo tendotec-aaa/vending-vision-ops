@@ -23,26 +23,15 @@ const LANGUAGES = [
   { value: 'zh', label: '中文' },
 ];
 
-// Common timezones
+// Common international timezones
 const TIMEZONES = [
-  { value: 'America/New_York', label: 'Eastern Time (ET)' },
-  { value: 'America/Chicago', label: 'Central Time (CT)' },
-  { value: 'America/Denver', label: 'Mountain Time (MT)' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
-  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
-  { value: 'America/Mexico_City', label: 'Mexico City' },
-  { value: 'America/Sao_Paulo', label: 'São Paulo' },
-  { value: 'America/Buenos_Aires', label: 'Buenos Aires' },
-  { value: 'Europe/London', label: 'London (GMT)' },
-  { value: 'Europe/Paris', label: 'Paris (CET)' },
-  { value: 'Europe/Berlin', label: 'Berlin (CET)' },
-  { value: 'Europe/Madrid', label: 'Madrid (CET)' },
-  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-  { value: 'Asia/Shanghai', label: 'Shanghai (CST)' },
-  { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
-  { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
-  { value: 'UTC', label: 'UTC' },
+  { value: 'UTC', label: 'UTC - Coordinated Universal Time' },
+  { value: 'Europe/Paris', label: 'CET - Central European Time' },
+  { value: 'Asia/Shanghai', label: 'CST - China Standard Time' },
+  { value: 'America/New_York', label: 'EST - Eastern Standard Time' },
+  { value: 'Asia/Kolkata', label: 'IST - Indian Standard Time' },
+  { value: 'America/Los_Angeles', label: 'PT - Pacific Time' },
+  { value: 'Australia/Sydney', label: 'AEST - Australian Eastern Time' },
 ];
 
 // Currency options
