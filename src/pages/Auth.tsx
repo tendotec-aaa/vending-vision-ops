@@ -49,7 +49,7 @@ const CURRENCIES = [
 
 const authSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
 const signupSchema = authSchema.extend({
@@ -272,7 +272,7 @@ export default function Auth() {
               <Input
                 id="signup-password"
                 type="password"
-                placeholder="Minimum 8 characters"
+                placeholder="Minimum 6 characters"
                 value={signupData.password}
                 onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
                 required
